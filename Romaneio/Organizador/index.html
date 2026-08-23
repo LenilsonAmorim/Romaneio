@@ -44,6 +44,19 @@ Quadra 04"></textarea>
 
   <button id="saveRouteRule">Salvar bairro e sequência</button>
   <div id="routeRulesList" class="savedRules"></div>
+  <div id="routeEditor" class="routeEditor" hidden>
+    <h3>Editar / escrever novamente</h3>
+    <label><b>Nome oficial do bairro</b></label>
+    <input id="editRouteBairro" type="text">
+    <label><b>Variações do bairro</b></label>
+    <textarea id="editRouteAliases"></textarea>
+    <label><b>Sequência das quadras</b></label>
+    <textarea id="editRouteSequence"></textarea>
+    <div class="actions">
+      <button id="saveEditedRoute">Salvar nova sequência</button>
+      <button id="clearEditRoute" class="secondary">Limpar para escrever novamente</button><button id="cancelEditRoute" class="secondary">Cancelar</button>
+    </div>
+  </div>
   <p class="muted">Você pode pular quadras. Ex.: 01 → 02 → 30. Quadra 01, QD01, QD 01, Q01, Q 01, Q D 01 e Quadra 1 são tratadas como QD 1.</p>
 </section>
 
