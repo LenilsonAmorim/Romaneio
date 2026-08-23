@@ -30,7 +30,14 @@ function loadRules(){try{return JSON.parse(localStorage.getItem(RULES_KEY)||"{}"
 function saveRules(x){localStorage.setItem(RULES_KEY,JSON.stringify(x))}
 function populateBairros(){
  const names=[...new Map(rows.map(r=>[normKey(r["Bairro"]),r["Bairro"]])).values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
- $("bairroSelect").innerHTML='<option value="">Selecione o bairro...</option>'+names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+ $("bairroSelect").innerHTML=names.length
+   ? '<option value="">Selecione o bairro...</option>'+names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+   : '<option value="">Nenhum bairro encontrado</option>';
+ $("bairroSelect").disabled=!names.length;
+ $("editSequence").disabled=true;
+ if(!names.length && rows.length){
+   $("fileInfo").textContent += " — Não foram encontrados nomes de bairro nas linhas importadas.";
+ }
  renderSavedRules();
 }
 function renderSavedRules(){
@@ -38,11 +45,32 @@ function renderSavedRules(){
  $("savedRules").innerHTML=names.length?'<b>Regras salvas:</b> '+names.map(k=>`<span class="ruleTag">${escapeHtml(rules[k].bairro)}</span>`).join(" "):'<span class="muted">Nenhuma sequência salva ainda.</span>';
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function findHeaderRow(data){
+ const max=Math.min(data.length,20);
+ for(let i=0;i<max;i++){
+   const headers=(data[i]||[]).map(cleanText);
+   const addr=findColumn(headers,["Destination Address","Endereço","Endereco","Address","Destino","Rua"]);
+   const bairro=findColumn(headers,["Bairro","Neighborhood","Distrito","Região","Regiao","District"]);
+   if(addr>=0&&bairro>=0)return i;
+ }
+ return 0;
+}
 function convertSheet(data){
  if(!data.length)throw new Error("A planilha está vazia.");
- const headers=data[0].map(cleanText),numIdx=findColumn(headers,["Stop","Sequence","Número","Numero","AT ID"]),addrIdx=findColumn(headers,["Destination Address","Endereço","Endereco","Address"]),bairroIdx=findColumn(headers,["Bairro","Neighborhood"]);
- if(addrIdx<0||bairroIdx<0)throw new Error("Não encontrei as colunas de Endereço e Bairro.");
- return data.slice(1).map((r,idx)=>({Número:numIdx>=0&&cleanText(r[numIdx])&&cleanText(r[numIdx])!=="-"?cleanText(r[numIdx]):String(idx+1),Endereço:normalizeQuadras(r[addrIdx]),Bairro:normalizeBairro(r[bairroIdx]),_quadra:extractQuadra(r[addrIdx]),_numeroCasa:extractHouseNumber(r[addrIdx]),_originalIndex:idx})).filter(r=>r["Endereço"]||r["Bairro"]);
+ const headerRow=findHeaderRow(data),headers=(data[headerRow]||[]).map(cleanText);
+ const numIdx=findColumn(headers,["Stop","Sequence","Número","Numero","AT ID","Parada","Ordem"]);
+ const addrIdx=findColumn(headers,["Destination Address","Endereço","Endereco","Address","Destino","Rua"]);
+ const bairroIdx=findColumn(headers,["Bairro","Neighborhood","Distrito","Região","Regiao","District"]);
+ if(addrIdx<0)throw new Error("Não encontrei a coluna de Endereço.");
+ if(bairroIdx<0)throw new Error("Não encontrei a coluna de Bairro. Confira se a planilha possui essa coluna.");
+ return data.slice(headerRow+1).map((r,idx)=>({
+   Número:numIdx>=0&&cleanText(r[numIdx])&&cleanText(r[numIdx])!=="-"?cleanText(r[numIdx]):String(idx+1),
+   Endereço:normalizeQuadras(r[addrIdx]),
+   Bairro:normalizeBairro(r[bairroIdx]),
+   _quadra:extractQuadra(r[addrIdx]),
+   _numeroCasa:extractHouseNumber(r[addrIdx]),
+   _originalIndex:idx
+ })).filter(r=>r["Endereço"]||r["Bairro"]);
 }
 function applySavedSequence(list){
  const rules=loadRules();
