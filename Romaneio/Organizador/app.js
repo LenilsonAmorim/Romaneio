@@ -14,14 +14,19 @@ function autoQuadraVariants(n){
 }
 function quadraNumber(text){
  const s=cleanText(text);
- let m=s.match(/\bquadra\s*[-.:]?\s*0*(\d+)\b/i);
+ // Rota cadastrada: somente LETRA + NÚMERO (ex.: D9, D10, A1).
+ let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
+ if(m)return String(Number(m[2]));
+ // Para reconhecer a planilha, aceita as formas comuns que equivalem à quadra.
+ m=s.match(/\bquadra\s*(?:d\s*)?[-.:]?\s*0*(\d+)\b/i);
  if(!m)m=s.match(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/i);
  if(!m)m=s.match(/\bq\s+d\s*[-.:]?\s*0*(\d+)\b/i);
  return m?String(Number(m[1])):"";
 }
 function normalizeQuadras(text){
  const n=quadraNumber(text);
- return n?cleanText(text).replace(/\bquadra\s*[-.:]?\s*0*\d+\b/i,"QD "+n):cleanText(text);
+ if(!n)return cleanText(text);
+ return cleanText(text).replace(/\bquadra\s*(?:d\s*)?[-.:]?\s*0*\d+\b/i,"QD "+n);
 }
 function extractQuadra(text){const n=quadraNumber(text);return n?Number(n):999999}
 function extractHouseNumber(text){
