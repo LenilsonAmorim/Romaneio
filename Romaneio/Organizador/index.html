@@ -7,16 +7,7 @@
 <body>
 <header><h1>Organizador de Endereços</h1><p>Organize sua planilha por bairros usando suas próprias regras de sequência.</p></header>
 <main>
-<section class="card"><h2>1. Importar planilha — organização automática</h2><input id="file" type="file" accept=".xlsx,.xls,.csv"><p id="fileInfo" class="muted">Nenhuma planilha carregada.</p></section>
 
-
-<section class="card"><h2>⚠️ Itens não reconhecidos</h2>
-<p class="muted">Mostra somente os primeiros 10 casos que o sistema não conseguiu classificar. Você pode ensinar a variação ao sistema.</p>
-<div id="unknownList"><span class="muted">Nenhum erro encontrado ainda.</span></div>
-</section>
-
-<section class="card"><h2>3. Regras de nome do bairro</h2><p class="muted">Uma regra por linha: nome que aparece = nome final.</p><textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
-Antonio Lins = Antônio Lins"></textarea><button id="applyRules" class="secondary">Aplicar regras</button></section>
 <section class="card"><h2>2. Regras de roteirização</h2>
 <p class="muted">Cadastre o bairro e a sequência da sua rota uma única vez. Não precisa importar uma planilha para cadastrar. Depois, ao importar qualquer planilha, o sistema usa automaticamente essas regras.</p>
 
@@ -49,7 +40,7 @@ Quadra 04"></textarea>
 <p>Na planilha exportada, cada bairro termina com uma linha vazia antes do próximo.</p>
 </section>
 
-<section class="card"><h2>6. Resultado</h2><div class="stats"><div><strong id="count">0</strong><span>entregas</span></div><div><strong id="bairros">0</strong><span>bairros</span></div><div><strong id="quadras">0</strong><span>quadras</span></div></div>
+<section class="card"><h2>4. Resultado</h2><div class="stats"><div><strong id="count">0</strong><span>entregas</span></div><div><strong id="bairros">0</strong><span>bairros</span></div><div><strong id="quadras">0</strong><span>quadras</span></div></div>
 <div class="actions"><button id="download" disabled class="secondary">Baixar XLSX</button><button id="downloadCsv" disabled class="secondary">Baixar CSV</button></div>
 <div class="tableWrap"><table id="preview"><thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead><tbody></tbody></table></div></section>
 <section class="card rules"><h2>Reconhecimento de Quadra</h2><p>QD01, QD 01, QD-01, Q01, Q 01, Q D 01 e Quadra 01 → <b>QD 1</b>.</p><p>Na planilha exportada, cada bairro terá <b>uma linha em branco</b> antes do próximo.</p></section>
