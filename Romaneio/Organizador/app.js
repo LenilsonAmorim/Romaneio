@@ -85,6 +85,7 @@ function populateBairros(){
    $("fileInfo").textContent += " — Não foram encontrados nomes de bairro nas linhas importadas.";
  }
  renderSavedRules();
+ populateRouteBairros();
  populateQuadraBairros();
 }
 function renderSavedRules(){
@@ -120,15 +121,15 @@ function convertSheet(data){
  if(addrIdx<0)throw new Error("Não encontrei a coluna de Endereço.");
  return data.slice(headerRow+1).map((r,idx)=>{
    const rawAddress=cleanText(r[addrIdx]);
-   const explicitBairro=bairroIdx>=0?cleanText(r[bairroIdx]):"";
-   // O endereço é a fonte principal: se houver um bairro reconhecido nele,
-   // ele vence o bairro informado em outra coluna.
-   const detected=detectBairroFromAddress(rawAddress);
-   const bairro=normalizeBairro(detected||explicitBairro||"");
+   const columnBairro=bairroIdx>=0?cleanText(r[bairroIdx]):"";
+   // PRIORIDADE: 1) endereço, 2) coluna Bairro, 3) não reconhecido.
+   const detectedFromAddress=detectBairroFromAddress(rawAddress);
+   const bairro=normalizeBairro(detectedFromAddress||columnBairro||"");
    return {
      Número:numIdx>=0&&cleanText(r[numIdx])&&cleanText(r[numIdx])!=="-"?cleanText(r[numIdx]):String(idx+1),
      Endereço:normalizeQuadras(rawAddress),
      Bairro:bairro,
+     _bairroSource:detectedFromAddress?"endereço":(columnBairro?"coluna":"não reconhecido"),
      _quadra:extractQuadra(rawAddress),
      _numeroCasa:extractHouseNumber(rawAddress),
      _originalIndex:idx
@@ -136,83 +137,45 @@ function convertSheet(data){
  }).filter(r=>r["Endereço"]||r["Bairro"]);
 }
 
-const QUADRA_RULES_KEY="romaneio_quadra_sequences_v1";
-function loadQuadraRules(){try{return JSON.parse(localStorage.getItem(QUADRA_RULES_KEY)||"{}")}catch(e){return {}}}
-function saveQuadraRules(x){localStorage.setItem(QUADRA_RULES_KEY,JSON.stringify(x))}
-function normalizeQuadraToken(text){const m=normalizeQuadras(text).match(/\bQD\s*(\d+)\b/i);return m?String(Number(m[1])):""}
-function renderQuadraRules(){
- const box=$("quadraRulesList"),rules=loadQuadraRules(),keys=Object.keys(rules);
- box.innerHTML=keys.length?'<b>Sequências salvas:</b> '+keys.map(k=>`<span class="ruleTag">${escapeHtml(rules[k].bairro)}: ${rules[k].sequence.map(x=>"QD "+x).join(" → ")}</span>`).join(" "):'<span class="muted">Nenhuma sequência de quadras salva ainda.</span>';
-}
-function populateQuadraBairros(){
- const names=[...new Map(rows.map(r=>[normKey(r.Bairro),r.Bairro])).values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
- $("quadraBairroSelect").innerHTML=names.length?'<option value="">Selecione o bairro...</option>'+names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join(""):'<option value="">Nenhum bairro encontrado</option>';
- renderQuadraRules();
-}
-function applyQuadraSequences(list){
- const rules=loadQuadraRules();
- return list.map(r=>({...r})).sort((a,b)=>{
-  const nb=normKey(a.Bairro).localeCompare(normKey(b.Bairro),"pt-BR"); if(nb)return nb;
-  const rule=rules[normKey(a.Bairro)];
-  if(rule){
-   const ia=rule.sequence.indexOf(normalizeQuadraToken(a.Endereço)),ib=rule.sequence.indexOf(normalizeQuadraToken(b.Endereço));
-   if(ia>=0||ib>=0){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
-  }
-  if(a._quadra!==b._quadra)return a._quadra-b._quadra;
-  if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
-  return a._originalIndex-b._originalIndex;
+function applyRouteRules(list){
+ const rules=loadRouteRules();
+ const groups=new Map();
+ list.forEach(r=>{
+   const key=normKey(r.Bairro)||"__NAO_RECONHECIDO__";
+   if(!groups.has(key))groups.set(key,[]);
+   groups.get(key).push({...r});
  });
-}
-function applySavedSequence(list){
- const rules=loadRules();
- return applyQuadraSequences(list).sort((a,b)=>{
-  const nb=normKey(a["Bairro"]).localeCompare(normKey(b["Bairro"]),"pt-BR"); if(nb)return nb;
-  const rule=rules[normKey(a["Bairro"])];
-  if(rule){
-   const ia=rule.keys.indexOf(addressKey(a)),ib=rule.keys.indexOf(addressKey(b));
-   if(ia>=0||ib>=0){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
-  }
-  if(a._quadra!==b._quadra)return a._quadra-b._quadra;
-  if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
-  return a._originalIndex-b._originalIndex;
+ const orderedGroups=[...groups.entries()].sort((a,b)=>{
+   if(a[0]==="__NAO_RECONHECIDO__")return 1;
+   if(b[0]==="__NAO_RECONHECIDO__")return -1;
+   return a[1][0].Bairro.localeCompare(b[1][0].Bairro,"pt-BR");
  });
-}
-function rebuildUnknownList(){
- const box=$("unknownList"),items=[];
- rows.forEach((r,i)=>{
-  if(!r.Bairro)items.push({type:"bairro",line:i+2,address:r.Endereço});
-  if(r.Endereço && normalizeQuadraToken(r.Endereço)==="")items.push({type:"quadra",line:i+2,address:r.Endereço,bairro:r.Bairro});
- });
- const first=items.slice(0,10);
- if(!first.length){box.innerHTML='<span class="muted">Nenhum erro encontrado ainda.</span>';return;}
- const map=loadBairroMap();
- const opts=Object.values(map).map(v=>`<option value="${escapeHtml(v.canonical)}">${escapeHtml(v.canonical)}</option>`).join("");
- box.innerHTML=first.map((x,i)=>`<div class="unknownRow"><b>Linha ${x.line}</b> — ${x.type==="bairro"?"Bairro":"Quadra"} não reconhecido<br><span>${escapeHtml(x.address)}</span>
- <div class="unknownActions">${x.type==="bairro"
- ? `<select data-ub="${i}"><option value="">Escolha o bairro oficial...</option>${opts}</select>`
- : `<select data-uq="${i}"><option value="">É qual quadra?</option>${[...Array(50)].map((_,n)=>`<option value="${n+1}">Quadra ${n+1}</option>`).join("")}</select>`}
- <button type="button" data-ua="${i}">Adicionar variação</button></div></div>`).join("");
- first.forEach((x,i)=>{
-  box.querySelector(`[data-ua="${i}"]`).onclick=()=>{
-   if(x.type==="bairro"){
-    const canonical=box.querySelector(`[data-ub="${i}"]`).value;if(!canonical){alert("Escolha o bairro oficial.");return;}
-    const map=loadBairroMap(),k=normKey(canonical);if(!map[k])return;
-    const candidate=cleanText(x.address.split(",").slice(-1)[0]||"");
-    if(candidate)map[k].aliases=[...new Set([...(map[k].aliases||[]),normKey(candidate)])];
-    saveBairroMap(map);alert("Variação adicionada a "+canonical+".");reimport();
+ const result=[];
+ orderedGroups.forEach(([key,items])=>{
+   if(key==="__NAO_RECONHECIDO__"){
+     items.sort((a,b)=>a._originalIndex-b._originalIndex);
    }else{
-    const n=box.querySelector(`[data-uq="${i}"]`).value;if(!n){alert("Escolha a quadra.");return;}
-    const bairro=x.bairro;if(!bairro){alert("Primeiro reconheça o bairro.");return;}
-    const rules=loadQuadraRules(),k=normKey(bairro),r=rules[k]||{bairro,sequence:[]};
-    r.sequence=[...new Set([...r.sequence,String(Number(n))])];rules[k]=r;saveQuadraRules(rules);organize();
+     const rule=rules[key];
+     items.sort((a,b)=>{
+       if(rule){
+         const ia=rule.sequence.indexOf(routeQuadraToken(a.Endereço));
+         const ib=rule.sequence.indexOf(routeQuadraToken(b.Endereço));
+         if(ia>=0||ib>=0){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
+       }
+       if(a._quadra!==b._quadra)return a._quadra-b._quadra;
+       if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
+       return a._originalIndex-b._originalIndex;
+     });
    }
-  };
+   result.push(...items);
  });
+ return result;
 }
-function reimport(){
- const f=$("file").files[0];if(!f)return;
- f.arrayBuffer().then(buf=>{const wb=XLSX.read(buf,{type:"array"});rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));populateBairros();organize();});
+
+function applySavedSequence(list){
+ return applyRouteRules(list);
 }
+
 function organize(){
  processed=applySavedSequence(rows);
  processed.forEach((r,i)=>r["Número"]=String(i+1));
@@ -287,3 +250,19 @@ $("saveQuadraSequence").onclick=()=>{
  alert("Sequência de quadras salva para "+bairro+".");
 };
 renderQuadraRules();
+
+$("routeBairroSelect").onchange=()=>{
+ const bairro=$("routeBairroSelect").value,r=loadRouteRules()[normKey(bairro)];
+ $("routeSequence").value=r?r.sequence.map(x=>"Quadra "+String(Number(x)).padStart(2,"0")).join("\n"):"";
+};
+$("saveRouteRule").onclick=()=>{
+ const bairro=$("routeBairroSelect").value;
+ if(!bairro){alert("Selecione o bairro.");return;}
+ const seq=[...new Set($("routeSequence").value.split(/\r?\n/).map(routeQuadraToken).filter(Boolean))];
+ if(!seq.length){alert("Digite pelo menos uma quadra.");return;}
+ const rules=loadRouteRules();
+ rules[normKey(bairro)]={bairro,sequence:seq,variants:Object.fromEntries(seq.map(n=>[n,autoQuadraVariants(n)]))};
+ saveRouteRules(rules);renderRouteRules();organize();
+ alert("Regra de roteirização salva para "+bairro+".");
+};
+renderRouteRules();

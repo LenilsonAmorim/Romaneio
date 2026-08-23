@@ -24,3 +24,5 @@ th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14p
 .unknownRow span{font-size:13px;color:#4b5563;word-break:break-word}
 .unknownActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .unknownActions select{flex:1;min-width:190px}
+
+#routeBairroSelect{width:100%;margin-bottom:10px}
