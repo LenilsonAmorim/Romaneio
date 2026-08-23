@@ -268,11 +268,25 @@ function saveCurrentSequence(){
  if(!currentBairro||!sequenceDraft.length)return;
  const rules=loadRules();rules[normKey(currentBairro)]={bairro:currentBairro,keys:sequenceDraft.map(addressKey),updatedAt:new Date().toISOString()};saveRules(rules);renderSavedRules();$("sequenceEditor").classList.add("hidden");organize();
 }
-$("file").addEventListener("change",async e=>{saveBairroList();const f=e.target.files[0];if(!f)return;try{const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));$("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas.`;$("process").disabled=false;populateBairros();processed=[];render()}catch(err){alert(err.message||"Não foi possível ler a planilha.")}});
+$("file").addEventListener("change",async e=>{
+ const f=e.target.files[0]; if(!f)return;
+ try{
+  const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+  rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));
+  $("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas. Organizando automaticamente...`;
+  populateBairros();
+  processed=applySavedSequence(rows);
+  processed.forEach((r,i)=>r["Número"]=String(i+1));
+  render();
+  $("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas e organizadas automaticamente.`;
+ }catch(err){
+  alert(err.message||"Não foi possível ler a planilha.");
+ }
+});rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));$("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas.`;if($("process")) $("process").disabled=false;populateBairros();processed=[];render()}catch(err){alert(err.message||"Não foi possível ler a planilha.")}});
 $("applyRules").onclick=()=>{if(!rows.length)return;rows=rows.map(r=>({...r,Bairro:normalizeBairro(r.Bairro)}));populateBairros();organize()};
 $("editSequence").onclick=openEditor;$("closeEditor").onclick=()=>$("sequenceEditor").classList.add("hidden");$("saveSequence").onclick=saveCurrentSequence;
 $("bairroSelect").onchange=()=>{$("editSequence").disabled=!$("bairroSelect").value};
-$("process").onclick=organize;
+if($("process")) $("process").onclick=organize;
 function exportMatrix(){const out=[["Número","Endereço","Bairro"]];processed.forEach((r,i)=>{if(i>0&&normKey(processed[i-1].Bairro)!==normKey(r.Bairro))out.push(["","",""]);out.push([r.Número,r.Endereço,r.Bairro])});return out}
 $("download").onclick=()=>{const ws=XLSX.utils.aoa_to_sheet(exportMatrix()),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Entregas");XLSX.writeFile(wb,"entregas_organizadas.xlsx")};
 $("downloadCsv").onclick=()=>{const csv=XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(exportMatrix())),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="entregas_organizadas.csv";a.click();URL.revokeObjectURL(a.href)};
@@ -307,18 +321,22 @@ $("saveQuadraSequence").onclick=()=>{
 };
 renderQuadraRules();
 
-$("routeBairroSelect").onchange=()=>{
- const bairro=$("routeBairroSelect").value,r=loadRouteRules()[normKey(bairro)];
- $("routeSequence").value=r?r.sequence.map(x=>"Quadra "+String(Number(x)).padStart(2,"0")).join("\n"):"";
-};
 $("saveRouteRule").onclick=()=>{
- const bairro=$("routeBairroSelect").value;
- if(!bairro){alert("Selecione o bairro.");return;}
+ const bairro=cleanText($("routeBairroName").value);
+ if(!bairro){alert("Digite o nome oficial do bairro.");return;}
+ const aliases=$("routeBairroAliases").value.split(/\r?\n/).map(cleanText).filter(Boolean);
+ registerBairro(bairro,aliases);
  const seq=[...new Set($("routeSequence").value.split(/\r?\n/).map(routeQuadraToken).filter(Boolean))];
- if(!seq.length){alert("Digite pelo menos uma quadra.");return;}
+ if(!seq.length){alert("Digite pelo menos uma quadra na sequência.");return;}
  const rules=loadRouteRules();
  rules[normKey(bairro)]={bairro,sequence:seq,variants:Object.fromEntries(seq.map(n=>[n,autoQuadraVariants(n)]))};
- saveRouteRules(rules);renderRouteRules();organize();
- alert("Regra de roteirização salva para "+bairro+".");
+ saveRouteRules(rules);
+ renderRouteRules();
+ populateBairros();
+ if(rows.length)organize();
+ $("routeBairroName").value="";
+ $("routeBairroAliases").value="";
+ $("routeSequence").value="";
+ alert("Bairro e sequência salvos para "+bairro+".");
 };
 renderRouteRules();

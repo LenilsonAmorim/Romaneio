@@ -7,7 +7,7 @@
 <body>
 <header><h1>Organizador de Endereços</h1><p>Organize sua planilha por bairros usando suas próprias regras de sequência.</p></header>
 <main>
-<section class="card"><h2>1. Importar planilha</h2><input id="file" type="file" accept=".xlsx,.xls,.csv"><p id="fileInfo" class="muted">Nenhuma planilha carregada.</p></section>
+<section class="card"><h2>1. Importar planilha — organização automática</h2><input id="file" type="file" accept=".xlsx,.xls,.csv"><p id="fileInfo" class="muted">Nenhuma planilha carregada.</p></section>
 <section class="card"><h2>2. Cadastro dos bairros e variações</h2>
 <p class="muted">Digite o nome oficial. O sistema cria variações comuns automaticamente. Se quiser, coloque outras variações, uma por linha.</p>
 <label><b>Nome oficial do bairro</b></label>
@@ -30,28 +30,32 @@ Conj. Antônio Lins"></textarea>
 
 <section class="card"><h2>3. Regras de nome do bairro</h2><p class="muted">Uma regra por linha: nome que aparece = nome final.</p><textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
 Antonio Lins = Antônio Lins"></textarea><button id="applyRules" class="secondary">Aplicar regras</button></section>
-<section class="card"><h2>3. Roteirização automática por bairro</h2>
-<p class="muted">Na primeira vez, escolha o bairro e escreva a sequência da sua rota. Depois disso, novas planilhas serão organizadas automaticamente. Você pode pular quadras: não é obrigatório cadastrar todas.</p>
-<select id="routeBairroSelect"><option value="">Selecione o bairro...</option></select>
+<section class="card"><h2>3. Regras de roteirização</h2>
+<p class="muted">Cadastre o bairro e a sequência da sua rota uma única vez. Não precisa importar uma planilha para cadastrar. Depois, ao importar qualquer planilha, o sistema usa automaticamente essas regras.</p>
+
+<label><b>Nome oficial do bairro</b></label>
+<input id="routeBairroName" type="text" placeholder="Ex.: Conjunto Antônio Lins">
+
+<label><b>Variações do bairro (opcional)</b></label>
+<textarea id="routeBairroAliases" placeholder="Antônio Lins
+Antonio Lins
+Conj. Antônio Lins"></textarea>
+
+<label><b>Sequência das quadras</b></label>
 <textarea id="routeSequence" placeholder="Quadra 01
 Quadra 02
 Quadra 05
 Quadra 10
 Quadra 30
 Quadra 04"></textarea>
-<button id="saveRouteRule">Salvar regra de roteirização</button>
+
+<button id="saveRouteRule">Salvar bairro e sequência</button>
+
 <div id="routeRulesList" class="savedRules"></div>
-<p class="muted">Ao escrever “Quadra 01”, o sistema já reconhece QD01, QD 01, Q01, Q 01, Q D 01, Quadra 1 etc. Se aparecer uma forma nova, você poderá adicioná-la depois.</p>
+<p class="muted">Você pode pular quadras. Ex.: depois da Quadra 02 pode ir direto para a Quadra 30. Quadra 01, QD01, QD 01, Q01, Q 01 e Quadra 1 são reconhecidas como a mesma quadra.</p>
 </section>
 
-<section class="card"><h2>5. Sequência por bairro</h2><p class="muted">Escolha um bairro, coloque as entregas na ordem da sua rota e salve. Nas próximas planilhas, essa sequência será aplicada automaticamente quando o bairro aparecer.</p>
-<div class="sequenceTop"><select id="bairroSelect"><option value="">Importe uma planilha primeiro</option></select><button id="editSequence" disabled>Editar sequência</button></div>
-<div id="savedRules" class="savedRules"></div>
-<div id="sequenceEditor" class="sequenceEditor hidden">
-<div class="editorHeader"><div><strong id="editorTitle">Sequência</strong><span id="editorHint" class="muted"></span></div><button id="closeEditor" class="secondary">Fechar</button></div>
-<p class="muted">Use ↑ e ↓ para deixar exatamente na ordem da sua rota.</p>
-<div id="sequenceList"></div><button id="saveSequence" class="saveBtn">Salvar sequência deste bairro</button>
-</div></section>
+
 <section class="card"><h2>Prioridade de reconhecimento</h2>
 <p><b>1.</b> Bairro dentro do endereço → <b>2.</b> coluna Bairro → <b>3.</b> não reconhecido.</p>
 <p>Depois de encontrar o bairro, a sequência de quadras usada é exclusivamente a cadastrada para aquele bairro.</p>
@@ -59,7 +63,7 @@ Quadra 04"></textarea>
 </section>
 
 <section class="card"><h2>6. Resultado</h2><div class="stats"><div><strong id="count">0</strong><span>entregas</span></div><div><strong id="bairros">0</strong><span>bairros</span></div><div><strong id="quadras">0</strong><span>quadras</span></div></div>
-<div class="actions"><button id="process" disabled>Organizar</button><button id="download" disabled class="secondary">Baixar XLSX</button><button id="downloadCsv" disabled class="secondary">Baixar CSV</button></div>
+<div class="actions"><button id="download" disabled class="secondary">Baixar XLSX</button><button id="downloadCsv" disabled class="secondary">Baixar CSV</button></div>
 <div class="tableWrap"><table id="preview"><thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead><tbody></tbody></table></div></section>
 <section class="card rules"><h2>Reconhecimento de Quadra</h2><p>QD01, QD 01, QD-01, Q01, Q 01, Q D 01 e Quadra 01 → <b>QD 1</b>.</p><p>Na planilha exportada, cada bairro terá <b>uma linha em branco</b> antes do próximo.</p></section>
 </main>
