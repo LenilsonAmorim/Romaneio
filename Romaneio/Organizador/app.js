@@ -23,10 +23,18 @@ function renderBairroMap(){
 }
 function registerBairro(canonical,aliases){
  const c=cleanText(canonical); if(!c)return;
- const map=loadBairroMap();
- const all=[c,...aliases.map(cleanText).filter(Boolean)];
- map[normKey(c)]={canonical:c,aliases:[...new Set(all.map(normKey))]};
+ const map=loadBairroMap(),generated=[];
+ const add=v=>{v=cleanText(v);if(v)generated.push(v)};
+ add(c);
+ add(c.replace(/\bConjunto\b/gi,"Conj"));
+ add(c.replace(/\bConjunto\b/gi,"Conj."));
+ add(c.replace(/\bLoteamento\b/gi,"Lot"));
+ add(c.replace(/\bResidencial\b/gi,"Res"));
+ add(c.normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+ aliases.forEach(add);
+ map[normKey(c)]={canonical:c,aliases:[...new Set(generated.map(normKey))]};
  saveBairroMap(map); renderBairroMap();
+ return map[normKey(c)];
 }
 function detectCanonicalBairroFromAddress(address){
  const textKey=normKey(address); if(!textKey)return "";
@@ -74,6 +82,54 @@ function findColumn(headers,patterns){
 function addressKey(r){return normKey(normalizeQuadras(r["Endereço"])).replace(/[^a-z0-9]+/g," ")}
 function loadRules(){try{return JSON.parse(localStorage.getItem(RULES_KEY)||"{}")}catch(e){return {}}}
 function saveRules(x){localStorage.setItem(RULES_KEY,JSON.stringify(x))}
+
+function populateRouteBairros(){
+ const select=$("routeBairroSelect");
+ if(!select)return;
+ const savedRules=loadRouteRules();
+ const names=[...new Map(rows.map(r=>[normKey(r.Bairro),r.Bairro])).values()].filter(Boolean);
+ const savedNames=Object.values(savedRules).map(r=>r.bairro).filter(Boolean);
+ const all=[...new Map([...names,...savedNames].map(n=>[normKey(n),n])).values()].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+ select.innerHTML=all.length
+  ? '<option value="">Selecione o bairro...</option>'+all.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+  : '<option value="">Importe uma planilha ou cadastre um bairro</option>';
+ renderRouteRules();
+}
+function populateQuadraBairros(){
+ const select=$("quadraBairroSelect");
+ if(!select)return;
+ const rules=loadQuadraRules();
+ const names=[...new Map(rows.map(r=>[normKey(r.Bairro),r.Bairro])).values()].filter(Boolean);
+ const savedNames=Object.values(rules).map(r=>r.bairro).filter(Boolean);
+ const all=[...new Map([...names,...savedNames].map(n=>[normKey(n),n])).values()].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+ select.innerHTML=all.length
+  ? '<option value="">Selecione o bairro...</option>'+all.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+  : '<option value="">Importe uma planilha ou cadastre um bairro</option>';
+ renderQuadraRules();
+}
+
+function populateRouteBairros(){
+ const select=$("routeBairroSelect"); if(!select)return;
+ const saved=loadRouteRules();
+ const names=[...new Map(rows.map(r=>[normKey(r.Bairro),r.Bairro])).values()].filter(Boolean);
+ const savedNames=Object.values(saved).map(r=>r.bairro).filter(Boolean);
+ const all=[...new Map([...names,...savedNames].map(n=>[normKey(n),n])).values()].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+ select.innerHTML=all.length
+  ? '<option value="">Selecione o bairro...</option>'+all.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+  : '<option value="">Importe uma planilha ou cadastre um bairro</option>';
+ renderRouteRules();
+}
+function populateQuadraBairros(){
+ const select=$("quadraBairroSelect"); if(!select)return;
+ const saved=loadQuadraRules();
+ const names=[...new Map(rows.map(r=>[normKey(r.Bairro),r.Bairro])).values()].filter(Boolean);
+ const savedNames=Object.values(saved).map(r=>r.bairro).filter(Boolean);
+ const all=[...new Map([...names,...savedNames].map(n=>[normKey(n),n])).values()].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+ select.innerHTML=all.length
+  ? '<option value="">Selecione o bairro...</option>'+all.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("")
+  : '<option value="">Importe uma planilha ou cadastre um bairro</option>';
+ renderQuadraRules();
+}
 function populateBairros(){
  const names=[...new Map(rows.map(r=>[normKey(r["Bairro"]),r["Bairro"]])).values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
  $("bairroSelect").innerHTML=names.length
