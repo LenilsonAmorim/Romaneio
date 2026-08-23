@@ -1,0 +1,24 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#111827;color:white;padding:24px 18px}
+header h1{margin:0 0 6px;font-size:25px}
+header p{margin:0;color:#d1d5db}
+main{max-width:1050px;margin:22px auto;padding:0 14px}
+.card{background:white;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 10px #00000010}
+h2{margin:0 0 12px;font-size:19px}
+input[type=file]{width:100%;padding:12px;border:1px dashed #9ca3af;border-radius:10px;background:#fafafa}
+textarea{width:100%;min-height:110px;border:1px solid #d1d5db;border-radius:10px;padding:12px;font:inherit;resize:vertical}
+button{border:0;border-radius:10px;padding:12px 16px;background:#111827;color:white;font-weight:700;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.secondary{background:#e5e7eb;color:#111827}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.muted{color:#6b7280}
+.stats{display:flex;gap:12px;flex-wrap:wrap}
+.stats div{background:#f3f4f6;border-radius:12px;padding:12px 18px;min-width:130px}
+.stats strong{display:block;font-size:24px}.stats span{font-size:12px;color:#6b7280}
+.tableWrap{overflow:auto;border:1px solid #e5e7eb;border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:650px}
+th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}
+th{background:#f9fafb}
+.rules{border-left:5px solid #111827}
+@media(max-width:600px){header h1{font-size:21px}.card{padding:15px}}

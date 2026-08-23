@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Organizador de Endereços</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>Organizador de Endereços</h1>
+    <p>Importe sua planilha e gere uma versão limpa usando somente Número, Endereço e Bairro.</p>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. Importar planilha</h2>
+    <input id="file" type="file" accept=".xlsx,.xls,.csv">
+    <p id="fileInfo" class="muted">Nenhuma planilha carregada.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. Regras de bairro</h2>
+    <p class="muted">Opcional. Uma regra por linha: nome que pode aparecer = nome final.</p>
+    <textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
+Mata do rolo = Mata do Rolo
+Antonio Lins = Antônio Lins"></textarea>
+    <button id="applyRules" class="secondary">Aplicar regras</button>
+  </section>
+
+  <section class="card">
+    <h2>3. Resultado</h2>
+    <div class="stats">
+      <div><strong id="count">0</strong><span>entregas</span></div>
+      <div><strong id="bairros">0</strong><span>bairros</span></div>
+      <div><strong id="quadras">0</strong><span>quadras reconhecidas</span></div>
+    </div>
+    <div class="actions">
+      <button id="process" disabled>Organizar</button>
+      <button id="download" disabled class="secondary">Baixar XLSX</button>
+      <button id="downloadCsv" disabled class="secondary">Baixar CSV</button>
+    </div>
+    <div class="tableWrap">
+      <table id="preview">
+        <thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card rules">
+    <h2>Regra de Quadra já incluída</h2>
+    <p>O sistema reconhece <b>QD01, QD 01, QD-01, QD1, Q 01, Q01, Quadra 01</b> e variações de maiúsculas/minúsculas/espaços.</p>
+    <p>Tudo vira o padrão <b>QD 1</b>, sem zero à esquerda.</p>
+  </section>
+</main>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
