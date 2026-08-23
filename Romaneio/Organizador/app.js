@@ -1,193 +1,105 @@
-let rows = [];
-let processed = [];
+let rows=[],processed=[],sequenceDraft=[],currentBairro="";
+const $=id=>document.getElementById(id);
+const RULES_KEY="romaneio_bairro_sequences_v1";
 
-const $ = id => document.getElementById(id);
-
-function cleanText(v) {
-  return String(v ?? "").replace(/\s+/g, " ").trim();
+function cleanText(v){return String(v??"").replace(/\s+/g," ").trim()}
+function normKey(v){return cleanText(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function normalizeQuadras(text){
+ let s=cleanText(text);
+ s=s.replace(/\bquadra\s*[-.:]?\s*0*(\d+)\b/gi,"QD $1");
+ s=s.replace(/\bq\s+d\s*[-.:]?\s*0*(\d+)\b/gi,"QD $1");
+ s=s.replace(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/gi,"QD $1");
+ return s;
 }
-
-function normKey(v) {
-  return cleanText(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+function extractQuadra(text){const m=normalizeQuadras(text).match(/\bQD\s+(\d+)\b/i);return m?Number(m[1]):999999}
+function extractHouseNumber(text){let m=cleanText(text).match(/,\s*0*(\d+)\b/);if(m)return Number(m[1]);m=cleanText(text).match(/\b0*(\d+)\b/);return m?Number(m[1]):999999}
+function normalizeBairro(text){
+ let s=cleanText(text);if(!s)return "";
+ const rules=$("bairroRules").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+ for(const line of rules){const p=line.split("=");if(p.length>=2&&normKey(p[0])===normKey(s))return cleanText(p.slice(1).join("="))}
+ return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
 }
-
-/*
-  Normaliza quadras sem confundir números comuns:
-  QD01, QD 01, QD-01, Q 01, Q01, Quadra 01 -> QD 1
-*/
-function normalizeQuadras(text) {
-  let s = cleanText(text);
-
-  // Quadra escrita por extenso.
-  s = s.replace(/\bquadra\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  // QD e Q isolados/colados, com espaços ou hífen.
-  s = s.replace(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  // Formas como "Q D 01" podem não casar dependendo da pontuação.
-  s = s.replace(/\bq\s+d\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  return s;
+function findColumn(headers,patterns){
+ const n=headers.map(normKey);
+ for(const p of patterns){const i=n.findIndex(h=>h===normKey(p));if(i>=0)return i}
+ for(const p of patterns){const i=n.findIndex(h=>h.includes(normKey(p)));if(i>=0)return i}
+ return -1;
 }
-
-function extractQuadra(text) {
-  const s = normalizeQuadras(text);
-  const m = s.match(/\bQD\s+(\d+)\b/i);
-  return m ? Number(m[1]) : 999999;
+function addressKey(r){return normKey(normalizeQuadras(r["Endereço"])).replace(/[^a-z0-9]+/g," ")}
+function loadRules(){try{return JSON.parse(localStorage.getItem(RULES_KEY)||"{}")}catch(e){return {}}}
+function saveRules(x){localStorage.setItem(RULES_KEY,JSON.stringify(x))}
+function populateBairros(){
+ const names=[...new Map(rows.map(r=>[normKey(r["Bairro"]),r["Bairro"]])).values()].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+ $("bairroSelect").innerHTML='<option value="">Selecione o bairro...</option>'+names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+ renderSavedRules();
 }
-
-function extractHouseNumber(text) {
-  const s = cleanText(text);
-  // Primeiro número após vírgula costuma ser o número do imóvel nas planilhas recebidas.
-  let m = s.match(/,\s*0*(\d+)\b/);
-  if (m) return Number(m[1]);
-  // Fallback: último número antes de complemento.
-  m = s.match(/\b0*(\d+)\b/);
-  return m ? Number(m[1]) : 999999;
+function renderSavedRules(){
+ const rules=loadRules(), names=Object.keys(rules);
+ $("savedRules").innerHTML=names.length?'<b>Regras salvas:</b> '+names.map(k=>`<span class="ruleTag">${escapeHtml(rules[k].bairro)}</span>`).join(" "):'<span class="muted">Nenhuma sequência salva ainda.</span>';
 }
-
-function normalizeBairro(text) {
-  let s = cleanText(text);
-  if (!s) return "";
-  const rules = $("bairroRules").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  const key = normKey(s);
-  for (const line of rules) {
-    const parts = line.split("=");
-    if (parts.length >= 2 && normKey(parts[0]) === key) return cleanText(parts.slice(1).join("="));
-  }
-  // Capitalização simples, preservando palavras curtas.
-  return s.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function convertSheet(data){
+ if(!data.length)throw new Error("A planilha está vazia.");
+ const headers=data[0].map(cleanText),numIdx=findColumn(headers,["Stop","Sequence","Número","Numero","AT ID"]),addrIdx=findColumn(headers,["Destination Address","Endereço","Endereco","Address"]),bairroIdx=findColumn(headers,["Bairro","Neighborhood"]);
+ if(addrIdx<0||bairroIdx<0)throw new Error("Não encontrei as colunas de Endereço e Bairro.");
+ return data.slice(1).map((r,idx)=>({Número:numIdx>=0&&cleanText(r[numIdx])&&cleanText(r[numIdx])!=="-"?cleanText(r[numIdx]):String(idx+1),Endereço:normalizeQuadras(r[addrIdx]),Bairro:normalizeBairro(r[bairroIdx]),_quadra:extractQuadra(r[addrIdx]),_numeroCasa:extractHouseNumber(r[addrIdx]),_originalIndex:idx})).filter(r=>r["Endereço"]||r["Bairro"]);
 }
-
-function findColumn(headers, patterns) {
-  const normalized = headers.map(h => normKey(h));
-  for (const p of patterns) {
-    const i = normalized.findIndex(h => h === normKey(p));
-    if (i >= 0) return i;
-  }
-  for (const p of patterns) {
-    const i = normalized.findIndex(h => h.includes(normKey(p)));
-    if (i >= 0) return i;
-  }
-  return -1;
+function applySavedSequence(list){
+ const rules=loadRules();
+ return list.map(r=>({...r})).sort((a,b)=>{
+   const nb=normKey(a["Bairro"]).localeCompare(normKey(b["Bairro"]),"pt-BR");
+   if(nb)return nb;
+   const rule=rules[normKey(a["Bairro"])];
+   if(rule){
+     const ia=rule.keys.indexOf(addressKey(a)),ib=rule.keys.indexOf(addressKey(b));
+     if(ia>=0||ib>=0){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
+   }
+   if(a._quadra!==b._quadra)return a._quadra-b._quadra;
+   if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
+   return a._originalIndex-b._originalIndex;
+ });
 }
-
-function convertSheet(data) {
-  if (!data.length) throw new Error("A planilha está vazia.");
-  const headers = data[0].map(cleanText);
-
-  const numIdx = findColumn(headers, ["Stop","Sequence","Número","Numero","AT ID"]);
-  const addrIdx = findColumn(headers, ["Destination Address","Endereço","Endereco","Address"]);
-  const bairroIdx = findColumn(headers, ["Bairro","Neighborhood"]);
-
-  if (addrIdx < 0 || bairroIdx < 0) {
-    throw new Error("Não encontrei as colunas de Endereço e Bairro.");
-  }
-
-  return data.slice(1).map((r, idx) => {
-    const numero = numIdx >= 0 && cleanText(r[numIdx]) && cleanText(r[numIdx]) !== "-"
-      ? cleanText(r[numIdx])
-      : String(idx + 1);
-
-    const endereco = normalizeQuadras(r[addrIdx]);
-    const bairro = normalizeBairro(r[bairroIdx]);
-
-    return {
-      "Número": numero,
-      "Endereço": endereco,
-      "Bairro": bairro,
-      _quadra: extractQuadra(endereco),
-      _numeroCasa: extractHouseNumber(endereco),
-      _originalIndex: idx
-    };
-  }).filter(r => r["Endereço"] || r["Bairro"]);
+function organize(){
+ processed=applySavedSequence(rows);
+ processed.forEach((r,i)=>r["Número"]=String(i+1));
+ render();
 }
-
-function organize() {
-  processed = rows.map(r => ({...r}));
-
-  // Primeiro bairro, depois quadra reconhecida, depois número do imóvel.
-  processed.sort((a,b) => {
-    const bairro = a["Bairro"].localeCompare(b["Bairro"], "pt-BR", {sensitivity:"base"});
-    if (bairro) return bairro;
-    if (a._quadra !== b._quadra) return a._quadra - b._quadra;
-    if (a._numeroCasa !== b._numeroCasa) return a._numeroCasa - b._numeroCasa;
-    return a._originalIndex - b._originalIndex;
-  });
-
-  // Renumera a sequência final.
-  processed.forEach((r,i)=>r["Número"] = String(i+1));
-
-  render();
+function render(){
+ const tb=$("preview").querySelector("tbody");tb.innerHTML="";
+ processed.forEach((r,i)=>{
+   if(i>0&&normKey(processed[i-1]["Bairro"])!==normKey(r["Bairro"])){const sep=document.createElement("tr");sep.className="bairroSep";sep.innerHTML='<td colspan="3"></td>';tb.appendChild(sep)}
+   const tr=document.createElement("tr");["Número","Endereço","Bairro"].forEach(k=>{const td=document.createElement("td");td.textContent=r[k];tr.appendChild(td)});tb.appendChild(tr);
+ });
+ $("count").textContent=processed.length;$("bairros").textContent=new Set(processed.map(r=>normKey(r["Bairro"])).filter(Boolean)).size;$("quadras").textContent=processed.filter(r=>r._quadra!==999999).length;
+ $("download").disabled=!processed.length;$("downloadCsv").disabled=!processed.length;
 }
-
-function render() {
-  const tbody = $("preview").querySelector("tbody");
-  tbody.innerHTML = "";
-  processed.slice(0,150).forEach(r=>{
-    const tr = document.createElement("tr");
-    for (const k of ["Número","Endereço","Bairro"]) {
-      const td=document.createElement("td");
-      td.textContent=r[k];
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  });
-
-  $("count").textContent = processed.length;
-  $("bairros").textContent = new Set(processed.map(r=>normKey(r["Bairro"])).filter(Boolean)).size;
-  $("quadras").textContent = processed.filter(r=>r._quadra !== 999999).length;
-  $("download").disabled = !processed.length;
-  $("downloadCsv").disabled = !processed.length;
+function openEditor(){
+ currentBairro=$("bairroSelect").value;if(!currentBairro)return;
+ sequenceDraft=rows.filter(r=>normKey(r["Bairro"])===normKey(currentBairro)).map(r=>({...r}));
+ const rules=loadRules()[normKey(currentBairro)];
+ if(rules){const order=rules.keys;sequenceDraft.sort((a,b)=>order.indexOf(addressKey(a))-order.indexOf(addressKey(b)))}
+ $("editorTitle").textContent="Sequência: "+currentBairro;$("editorHint").textContent=` (${sequenceDraft.length} entregas)`;$("sequenceEditor").classList.remove("hidden");renderEditor();
 }
-
-$("file").addEventListener("change", async e=>{
-  const file=e.target.files[0];
-  if(!file)return;
-  try {
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-    rows=convertSheet(data);
-    $("fileInfo").textContent=`${file.name} — ${rows.length} entregas carregadas.`;
-    $("process").disabled=false;
-    processed=[];
-    render();
-  } catch(err) {
-    alert(err.message || "Não foi possível ler a planilha.");
-  }
-});
-
-$("process").addEventListener("click", organize);
-$("applyRules").addEventListener("click", ()=>{
-  if (!rows.length) return;
-  rows = rows.map(r=>({...r,"Bairro":normalizeBairro(r["Bairro"])}));
-  organize();
-});
-
-function outputRows() {
-  return processed.map(r=>({
-    "Número":r["Número"],
-    "Endereço":r["Endereço"],
-    "Bairro":r["Bairro"]
-  }));
+function renderEditor(){
+ const box=$("sequenceList");box.innerHTML="";
+ sequenceDraft.forEach((r,i)=>{
+   const div=document.createElement("div");div.className="seqRow";
+   div.innerHTML=`<div class="seqPos">${i+1}</div><div class="seqText"><b>${escapeHtml(r["Endereço"])}</b><span>${escapeHtml(r["Bairro"])}</span></div><div class="seqBtns"><button type="button" data-up="${i}" ${i===0?"disabled":""}>↑</button><button type="button" data-down="${i}" ${i===sequenceDraft.length-1?"disabled":""}>↓</button></div>`;
+   box.appendChild(div);
+ });
+ box.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=Number(b.dataset.up);[sequenceDraft[i-1],sequenceDraft[i]]=[sequenceDraft[i],sequenceDraft[i-1]];renderEditor()});
+ box.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>{const i=Number(b.dataset.down);[sequenceDraft[i+1],sequenceDraft[i]]=[sequenceDraft[i],sequenceDraft[i+1]];renderEditor()});
 }
-
-$("download").addEventListener("click", ()=>{
-  const ws=XLSX.utils.json_to_sheet(outputRows());
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Entregas");
-  XLSX.writeFile(wb,"entregas_organizadas.xlsx");
-});
-
-$("downloadCsv").addEventListener("click", ()=>{
-  const ws=XLSX.utils.json_to_sheet(outputRows());
-  const csv=XLSX.utils.sheet_to_csv(ws);
-  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="entregas_organizadas.csv";
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
+function saveCurrentSequence(){
+ if(!currentBairro||!sequenceDraft.length)return;
+ const rules=loadRules();rules[normKey(currentBairro)]={bairro:currentBairro,keys:sequenceDraft.map(addressKey),updatedAt:new Date().toISOString()};saveRules(rules);renderSavedRules();$("sequenceEditor").classList.add("hidden");organize();
+}
+$("file").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));$("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas.`;$("process").disabled=false;populateBairros();processed=[];render()}catch(err){alert(err.message||"Não foi possível ler a planilha.")}});
+$("applyRules").onclick=()=>{if(!rows.length)return;rows=rows.map(r=>({...r,Bairro:normalizeBairro(r.Bairro)}));populateBairros();organize()};
+$("editSequence").onclick=openEditor;$("closeEditor").onclick=()=>$("sequenceEditor").classList.add("hidden");$("saveSequence").onclick=saveCurrentSequence;
+$("bairroSelect").onchange=()=>{$("editSequence").disabled=!$("bairroSelect").value};
+$("process").onclick=organize;
+function exportMatrix(){const out=[["Número","Endereço","Bairro"]];processed.forEach((r,i)=>{if(i>0&&normKey(processed[i-1].Bairro)!==normKey(r.Bairro))out.push(["","",""]);out.push([r.Número,r.Endereço,r.Bairro])});return out}
+$("download").onclick=()=>{const ws=XLSX.utils.aoa_to_sheet(exportMatrix()),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Entregas");XLSX.writeFile(wb,"entregas_organizadas.xlsx")};
+$("downloadCsv").onclick=()=>{const csv=XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet(exportMatrix())),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="entregas_organizadas.csv";a.click();URL.revokeObjectURL(a.href)};
+renderSavedRules();

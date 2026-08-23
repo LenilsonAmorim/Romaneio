@@ -1,63 +1,27 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Organizador de Endereços</title>
-<link rel="stylesheet" href="styles.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Organizador de Endereços</title><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <div>
-    <h1>Organizador de Endereços</h1>
-    <p>Importe sua planilha e gere uma versão limpa usando somente Número, Endereço e Bairro.</p>
-  </div>
-</header>
-
+<header><h1>Organizador de Endereços</h1><p>Organize sua planilha por bairros usando suas próprias regras de sequência.</p></header>
 <main>
-  <section class="card">
-    <h2>1. Importar planilha</h2>
-    <input id="file" type="file" accept=".xlsx,.xls,.csv">
-    <p id="fileInfo" class="muted">Nenhuma planilha carregada.</p>
-  </section>
-
-  <section class="card">
-    <h2>2. Regras de bairro</h2>
-    <p class="muted">Opcional. Uma regra por linha: nome que pode aparecer = nome final.</p>
-    <textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
-Mata do rolo = Mata do Rolo
-Antonio Lins = Antônio Lins"></textarea>
-    <button id="applyRules" class="secondary">Aplicar regras</button>
-  </section>
-
-  <section class="card">
-    <h2>3. Resultado</h2>
-    <div class="stats">
-      <div><strong id="count">0</strong><span>entregas</span></div>
-      <div><strong id="bairros">0</strong><span>bairros</span></div>
-      <div><strong id="quadras">0</strong><span>quadras reconhecidas</span></div>
-    </div>
-    <div class="actions">
-      <button id="process" disabled>Organizar</button>
-      <button id="download" disabled class="secondary">Baixar XLSX</button>
-      <button id="downloadCsv" disabled class="secondary">Baixar CSV</button>
-    </div>
-    <div class="tableWrap">
-      <table id="preview">
-        <thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card rules">
-    <h2>Regra de Quadra já incluída</h2>
-    <p>O sistema reconhece <b>QD01, QD 01, QD-01, QD1, Q 01, Q01, Quadra 01</b> e variações de maiúsculas/minúsculas/espaços.</p>
-    <p>Tudo vira o padrão <b>QD 1</b>, sem zero à esquerda.</p>
-  </section>
+<section class="card"><h2>1. Importar planilha</h2><input id="file" type="file" accept=".xlsx,.xls,.csv"><p id="fileInfo" class="muted">Nenhuma planilha carregada.</p></section>
+<section class="card"><h2>2. Regras de bairro</h2><p class="muted">Uma regra por linha: nome que aparece = nome final.</p><textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
+Antonio Lins = Antônio Lins"></textarea><button id="applyRules" class="secondary">Aplicar regras</button></section>
+<section class="card"><h2>3. Sequência por bairro</h2><p class="muted">Escolha um bairro, coloque as entregas na ordem da sua rota e salve. Nas próximas planilhas, essa sequência será aplicada automaticamente quando o bairro aparecer.</p>
+<div class="sequenceTop"><select id="bairroSelect"><option value="">Importe uma planilha primeiro</option></select><button id="editSequence" disabled>Editar sequência</button></div>
+<div id="savedRules" class="savedRules"></div>
+<div id="sequenceEditor" class="sequenceEditor hidden">
+<div class="editorHeader"><div><strong id="editorTitle">Sequência</strong><span id="editorHint" class="muted"></span></div><button id="closeEditor" class="secondary">Fechar</button></div>
+<p class="muted">Use ↑ e ↓ para deixar exatamente na ordem da sua rota.</p>
+<div id="sequenceList"></div><button id="saveSequence" class="saveBtn">Salvar sequência deste bairro</button>
+</div></section>
+<section class="card"><h2>4. Resultado</h2><div class="stats"><div><strong id="count">0</strong><span>entregas</span></div><div><strong id="bairros">0</strong><span>bairros</span></div><div><strong id="quadras">0</strong><span>quadras</span></div></div>
+<div class="actions"><button id="process" disabled>Organizar</button><button id="download" disabled class="secondary">Baixar XLSX</button><button id="downloadCsv" disabled class="secondary">Baixar CSV</button></div>
+<div class="tableWrap"><table id="preview"><thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead><tbody></tbody></table></div></section>
+<section class="card rules"><h2>Reconhecimento de Quadra</h2><p>QD01, QD 01, QD-01, Q01, Q 01, Q D 01 e Quadra 01 → <b>QD 1</b>.</p><p>Na planilha exportada, cada bairro terá <b>uma linha em branco</b> antes do próximo.</p></section>
 </main>
-
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
-</body>
-</html>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><script src="app.js"></script>
+</body></html>
