@@ -283,6 +283,7 @@ $("file").addEventListener("change",async e=>{
   alert(err.message||"Não foi possível ler a planilha.");
  }
 });rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));$("fileInfo").textContent=`${f.name} — ${rows.length} entregas carregadas.`;if($("process")) $("process").disabled=false;populateBairros();processed=[];render()}catch(err){alert(err.message||"Não foi possível ler a planilha.")}});
+rows=rows.map(r=>({...r,Bairro:normalizeBairro(r.Bairro)}));populateBairros();organize()};
 $("editSequence").onclick=openEditor;$("closeEditor").onclick=()=>$("sequenceEditor").classList.add("hidden");$("saveSequence").onclick=saveCurrentSequence;
 $("bairroSelect").onchange=()=>{$("editSequence").disabled=!$("bairroSelect").value};
 if($("process")) $("process").onclick=organize;
