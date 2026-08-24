@@ -40,6 +40,23 @@
   </div>
 </section>
 
+<section id="screenView" class="screen">
+  <div class="card routeHero">
+    <div class="eyebrow">MINHA ROTA</div>
+    <h1>Lista para fazer a rota</h1>
+    <p class="muted">Aqui fica a lista já organizada pela sequência dos bairros e das quadras que você cadastrou.</p>
+    <div class="routeBigCount"><strong id="routeViewCount">0</strong><span>paradas analisadas</span></div>
+    <input id="routeSearch" class="routeSearch" type="search" placeholder="🔎 Procurar endereço ou bairro...">
+    <button id="refreshRouteView" class="secondary full">🔄 Atualizar lista</button>
+  </div>
+  <div id="routeViewEmpty" class="card emptyRoute">
+    <div class="emptyIcon">📋</div>
+    <h2>Nenhuma rota analisada ainda</h2>
+    <p class="muted">Vá em <b>Planilha</b>, escolha o arquivo e toque em <b>Analisar novamente</b>. Depois volte aqui para fazer sua rota.</p>
+  </div>
+  <div id="routeViewList" class="routeViewList"></div>
+</section>
+
 <section id="screenCadastro" class="screen">
   <div class="card">
     <div class="eyebrow">CADASTRO</div><h2>Bairros e sequências</h2>
@@ -66,13 +83,14 @@
   </div>
 </section>
 </main>
-<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
+<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navView" class="navItem">🧭<span>Minha rota</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
+<script src="viewer.js"></script>
 <script>
-(()=>{const r=document.getElementById('screenRoute'),c=document.getElementById('screenCadastro'),a=document.getElementById('navRoute'),b=document.getElementById('navCadastro');
-function show(x){let route=x==='route';r.classList.toggle('activeScreen',route);c.classList.toggle('activeScreen',!route);a.classList.toggle('active',route);b.classList.toggle('active',!route);scrollTo(0,0)}
-a.onclick=()=>show('route');b.onclick=()=>show('cadastro')})();
+(()=>{const r=document.getElementById('screenRoute'),c=document.getElementById('screenCadastro'),v=document.getElementById('screenView'),a=document.getElementById('navRoute'),b=document.getElementById('navCadastro'),n=document.getElementById('navView');
+function show(x){[r,c,v].forEach(el=>el.classList.remove('activeScreen'));const target=x==='route'?r:x==='cadastro'?c:v;target.classList.add('activeScreen');[a,b,n].forEach(el=>el.classList.remove('active'));(x==='route'?a:x==='cadastro'?b:n).classList.add('active');scrollTo(0,0)}
+a.onclick=()=>show('route');b.onclick=()=>show('cadastro');n.onclick=()=>show('view')})();
 </script>
 </body>
 </html>
