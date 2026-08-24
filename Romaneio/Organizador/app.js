@@ -201,7 +201,9 @@ function convertSheet(data){
    return {
      "Número":numIdx>=0&&cleanText(r[numIdx])?cleanText(r[numIdx]):String(idx+1),
      "Endereço":normalizeQuadras(address),
-     "Bairro":bairro,
+     "Bairro":bairro||columnBairro||"Não informado",
+     "_bairroOriginal":columnBairro||"Não informado",
+     "_bairroReconhecido":bairro,
      "_bairroSource":fromAddress?"endereço":fromColumn?"coluna":"não reconhecido",
      "_quadra":extractQuadra(address),
      "_numeroCasa":extractHouseNumber(address),
@@ -271,15 +273,32 @@ function render(){
  renderUnknown();
 }
 function renderUnknown(){
- const box=$("unknownList"),unknown=rows.filter(r=>!r.Bairro).slice(0,10);
+ const box=$("unknownList"),unknown=rows.filter(r=>!r._bairroReconhecido).slice(0,10);
  if(!unknown.length){box.innerHTML='<span class="muted">Nenhum erro encontrado ainda.</span>';return}
- box.innerHTML=unknown.map((r,i)=>`<div class="unknownRow"><b>Linha ${r._originalIndex+2}</b><div class="addr">${escapeHtml(r["Endereço"])}</div><div class="unknownActions"><input id="unknownAlias${i}" type="text" placeholder="Variação do bairro que apareceu"><select id="unknownBairro${i}"><option value="">Escolha o bairro oficial...</option>${Object.values(loadRouteRules()).map(x=>`<option value="${escapeHtml(x.bairro)}">${escapeHtml(x.bairro)}</option>`).join("")}</select><button type="button" data-unknown="${i}">Adicionar variação</button></div></div>`).join("");
+ const rules=loadRouteRules();
+ box.innerHTML=unknown.map((r,i)=>`<div class="unknownRow">
+   <b>Linha ${r._originalIndex+2}</b>
+   <div class="addr"><b>Endereço:</b> ${escapeHtml(r["Endereço"])}</div>
+   <div class="addr"><b>Bairro informado:</b> ${escapeHtml(r["_bairroOriginal"]||"Não informado")}</div>
+   <div class="unknownActions">
+     <input id="unknownAlias${i}" type="text" placeholder="Variação que apareceu na planilha">
+     <select id="unknownBairro${i}">
+       <option value="">Escolha o bairro correto...</option>
+       ${Object.values(rules).map(x=>`<option value="${escapeHtml(x.bairro)}">${escapeHtml(x.bairro)}</option>`).join("")}
+     </select>
+     <button type="button" data-unknown="${i}">Adicionar variação</button>
+   </div>
+ </div>`).join("");
  box.querySelectorAll("[data-unknown]").forEach(btn=>btn.onclick=()=>{
-  const i=Number(btn.dataset.unknown),canonical=$("unknownBairro"+i).value,alias=cleanText($("unknownAlias"+i).value);
-  if(!canonical||!alias){alert("Escolha o bairro oficial e digite a variação.");return}
-  const rules=loadRouteRules(),key=normKey(canonical);
-  rules[key].aliases=[...new Set([...(rules[key].aliases||[]),normKey(alias)])];
-  saveRouteRules(rules);analyze();alert("Variação adicionada a "+canonical+".");
+   const i=Number(btn.dataset.unknown),canonical=$("unknownBairro"+i).value;
+   const alias=cleanText($("unknownAlias"+i).value)||cleanText(unknown[i]["_bairroOriginal"]);
+   if(!canonical){alert("Escolha o bairro correto.");return}
+   if(!alias||alias==="Não informado"){alert("Digite a variação do bairro que apareceu na planilha.");return}
+   const rules=loadRouteRules(),key=normKey(canonical);
+   if(!rules[key]){alert("Bairro não encontrado nas regras salvas.");return}
+   rules[key].aliases=[...new Set([...(rules[key].aliases||[]),normKey(alias)])];
+   saveRouteRules(rules);renderRouteRules();analyze();
+   alert("Variação adicionada a "+canonical+". Agora clique em Analisar novamente para reorganizar a planilha.");
  });
 }
 
