@@ -12,6 +12,46 @@ function autoQuadraVariants(n){
  const x=String(Number(n)),p=String(Number(n)).padStart(2,"0");
  return [`Quadra ${x}`,`Quadra ${p}`,`QD${x}`,`QD ${x}`,`QD${p}`,`QD ${p}`,`Q${x}`,`Q ${x}`,`Q${p}`,`Q ${p}`,`Q D ${p}`];
 }
+function quadraNumber(text){
+ const s=cleanText(text);
+
+ // Sequência cadastrada: letra + número (D5, A1 etc.).
+ let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ // Formas encontradas no endereço:
+ // QD- D5, QD-D5, QD- A1, QD-A1, QD-01, QD01, QD 01,
+ // Quadra D5, Quadra A1, Quadra 01.
+ m=s.match(/\b(?:qd|quadra)\s*-\s*([A-Za-z])\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ m=s.match(/\b(?:qd|quadra)\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ // QD-01 / QD01 / QD 01 sem letra = D01.
+ m=s.match(/\bqd\s*-\s*0*(\d+)\b/i);
+ if(m)return "D"+String(Number(m[1]));
+
+ m=s.match(/\bqd\s*0*(\d+)\b/i);
+ if(m)return "D"+String(Number(m[1]));
+
+ // QD D5 / Q D D5.
+ m=s.match(/\bq\s*d\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ // Q5 / Q-5 / Q 5 = D5.
+ m=s.match(/\bq\s*[-.:]?\s*0*(\d+)\b/i);
+ if(m)return "D"+String(Number(m[1]));
+
+ // Quadra D5 / D5 isolado dentro do endereço.
+ m=s.match(/\bquadra\s*([A-Za-z])\s*[-.:]?\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ m=s.match(/(?:^|[\s,;\/-])([A-Za-z])\s*0*(\d+)(?=$|[\s,;\/-])/);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+
+ return "";
+}
 function routeToken(text){
  const s=cleanText(text);
  if(!s)return "";
@@ -19,20 +59,10 @@ function routeToken(text){
  return q || s;
 }
 function routeKey(text){
- const s=cleanText(text);
- const q=quadraNumber(s);
- return q ? "Q:"+q : "T:"+normKey(s);
+ const q=quadraNumber(text);
+ return q ? "Q:"+q : "T:"+normKey(text);
 }
-function quadraNumber(text){
- const s=cleanText(text);
- let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
- if(m)return m[1].toUpperCase()+String(Number(m[2]));
- m=s.match(/\bquadra\s*([A-Za-z])\s*[-.:]?\s*0*(\d+)\b/i);
- if(m)return m[1].toUpperCase()+String(Number(m[2]));
- m=s.match(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/i);
- if(m)return "D"+String(Number(m[1]));
- return "";
-}
+
 function normalizeQuadras(text){
  return cleanText(text);
 }
@@ -198,10 +228,14 @@ function applyRouteRules(list){
    const rule=rules[key],seq=rule?.sequence||[];
    items.sort((a,b)=>{
     if(seq.length){
-     const aKey=routeKey(a["Endereço"]), bKey=routeKey(b["Endereço"]);
-     let ia=seq.findIndex(x=>routeKey(x)===aKey), ib=seq.findIndex(x=>routeKey(x)===bKey);
-     if(ia>=0||ib){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
-    }
+     const ia=seq.findIndex(x=>routeKey(x)===routeKey(a["Endereço"]));
+     const ib=seq.findIndex(x=>routeKey(x)===routeKey(b["Endereço"]));
+     if(ia>=0||ib>=0){
+       if(ia<0)return 1;
+       if(ib<0)return -1;
+       if(ia!==ib)return ia-ib;
+     }
+   }
     if(a._quadra!==b._quadra)return a._quadra-b._quadra;
     if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
     return a._originalIndex-b._originalIndex;
