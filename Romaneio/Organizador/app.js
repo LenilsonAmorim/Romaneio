@@ -107,6 +107,7 @@ function saveRouteRule(){
  saveRouteRules(rules);
  renderRouteRules();
  renderSavedVariations();
+ if(currentFile) reanalyzeCurrentFile();
  $("routeBairroName").value="";
  $("routeBairroAliases").value="";
  $("routeSequence").value="";
@@ -162,7 +163,7 @@ function saveEditedRoute(){
  saveRouteRules(rules);
  closeRouteEditor();
  renderRouteRules();
- if(rows.length)analyze();
+ if(currentFile) reanalyzeCurrentFile(); else if(rows.length)analyze();
 }
 function clearEditRoute(){
  $("editRouteBairro").value="";
@@ -210,7 +211,7 @@ function renderSavedVariations(){
    if(!confirm(`Remover a variação "${x.alias}" de ${r.bairro}?`))return;
    r.aliases=(r.aliases||[]).filter(a=>normKey(a)!==normKey(x.alias));
    saveRouteRules(rules); renderSavedVariations();
-   if(rows.length)analyze();
+   if(currentFile) reanalyzeCurrentFile(); else if(rows.length)analyze();
  });
 }
 
@@ -235,7 +236,7 @@ function findBairroInText(text){
  // Alguns conjuntos têm o mesmo nome-base de outro bairro/conjunto.
  // Ex.: "Citta Antônio Lins" contém "Antônio Lins", mas "Citta" é
  // a identificação específica e deve vencer a correspondência genérica.
- const strongMarkers=["citta"];
+ const strongMarkers=["citta","sitta"];
 
  for(const r of Object.values(rules)){
   const candidates=[r.bairro,...(r.aliases||[])].map(normKey).filter(Boolean);
@@ -370,6 +371,20 @@ function applyRouteRules(list){
  return [...unresolved,...orderedGroups.flat()];
 }
 
+async function reanalyzeCurrentFile(){
+ if(!currentFile)return false;
+ try{
+  const wb=XLSX.read(await currentFile.arrayBuffer(),{type:"array"});
+  rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));
+  analyze();
+  return true;
+ }catch(err){
+  $("fileInfo").textContent="Erro: "+(err.message||"Não foi possível reanalisar a planilha.");
+  alert(err.message||"Não foi possível reanalisar a planilha.");
+  return false;
+ }
+}
+
 function analyze(){
  if(!rows.length)return;
  processed=applyRouteRules(rows);
@@ -422,7 +437,8 @@ function renderUnknown(){
    const alias=cleanText($("unknownAlias"+i).value)||cleanText(unknown[i]["_bairroOriginal"]);
    if(!alias||alias==="Não informado"){alert("Digite a variação do bairro ou informe o bairro correto.");return}
    if(!setBairroVariation(alias,canonical)){alert("Não foi possível salvar a associação. Verifique se o bairro está cadastrado.");return}
-   renderRouteRules();renderSavedVariations();analyze();
+   renderRouteRules();renderSavedVariations();
+   if(currentFile) reanalyzeCurrentFile(); else analyze();
    alert(`Correção salva: "${alias}" → ${canonical}. Agora a análise foi refeita.`);
  });
 }
@@ -439,15 +455,8 @@ $("file").addEventListener("change",async e=>{
 });
 $("analyze").onclick=async ()=>{
  if(!currentFile)return;
- try{
-  $("fileInfo").textContent=`Reanalisando ${currentFile.name}...`;
-  const wb=XLSX.read(await currentFile.arrayBuffer(),{type:"array"});
-  rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));
-  analyze();
- }catch(err){
-  $("fileInfo").textContent="Erro: "+(err.message||"Não foi possível reanalisar a planilha.");
-  alert(err.message||"Não foi possível reanalisar a planilha.");
- }
+ $("fileInfo").textContent=`Reanalisando ${currentFile.name}...`;
+ await reanalyzeCurrentFile();
 };
 $("saveRouteRule").onclick=saveRouteRule;
 $("saveEditedRoute").onclick=saveEditedRoute;
