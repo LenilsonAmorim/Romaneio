@@ -63,8 +63,20 @@
     else render();
   }
   const FINISHED_KEY='romaneio_finished_stops_v1';
+  const MANUAL_ORDER_KEY='romaneio_manual_route_order_v1';
   function loadFinished(){try{return JSON.parse(localStorage.getItem(FINISHED_KEY)||'[]')||[]}catch(e){return[]}}
   function saveFinished(v){localStorage.setItem(FINISHED_KEY,JSON.stringify(v))}
+  function loadManualOrder(){try{return JSON.parse(localStorage.getItem(MANUAL_ORDER_KEY)||'[]')||[]}catch(e){return[]}}
+  function saveManualOrder(v){localStorage.setItem(MANUAL_ORDER_KEY,JSON.stringify(v))}
+  function applyManualOrder(data){
+    const order=loadManualOrder(); if(!order.length)return data;
+    const pos=new Map(order.map((k,i)=>[k,i]));
+    return data.map((x,i)=>({x,i,k:stopKey(x)})).sort((a,b)=>{
+      const pa=pos.has(a.k)?pos.get(a.k):1000000+a.i;
+      const pb=pos.has(b.k)?pos.get(b.k):1000000+b.i;
+      return pa-pb;
+    }).map(o=>o.x);
+  }
   function stopKey(x){return String(x.originalIndex??'')+'|'+String(x.numero??'')+'|'+String(x.endereco??'')}
   function isFinished(x){return loadFinished().includes(stopKey(x))}
   function removeStop(x){
@@ -88,16 +100,44 @@
       bar=document.createElement('div');bar.id='routeUndoBar';bar.className='routeUndoBar';
       document.body.appendChild(bar);
     }
-    bar.innerHTML=`<span>Entrega finalizada</span><button type="button" id="routeUndoBtn">↩ Voltar</button>`;
+    const many=Array.isArray(x.items)&&x.items.length>1;
+    bar.innerHTML=`<span>${many?x.items.length+' entregas finalizadas':'Entrega finalizada'}</span><button type="button" id="routeUndoBtn">↩ Voltar</button>`;
     bar.hidden=false;
     clearTimeout(window.__routeUndoTimer);
     window.__routeUndoTimer=setTimeout(()=>{bar.hidden=true},7000);
-    $('routeUndoBtn').onclick=()=>{undoStop(x);bar.hidden=true;};
+    $('routeUndoBtn').onclick=()=>{many?undoGroup(x):undoStop(x);bar.hidden=true;};
+  }
+  function addressGroupKey(x){
+    const b=bairroKey(x.bairro||'Bairro não informado');
+    const a=norm(x.endereco||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return b+'|'+a;
+  }
+  function groupSameAddresses(data){
+    const groups=[]; const map=new Map();
+    data.forEach(x=>{
+      const key=addressGroupKey(x);
+      if(!map.has(key)){ const g={key,items:[]}; map.set(key,g); groups.push(g); }
+      map.get(key).items.push(x);
+    });
+    return groups;
+  }
+  function finishGroup(group){
+    const done=loadFinished();
+    const keys=group.items.map(stopKey).filter(k=>!done.includes(k));
+    if(!keys.length)return;
+    saveFinished([...new Set([...done,...keys])]);
+    render();
+    showUndo(group);
+  }
+  function undoGroup(group){
+    const keys=new Set(group.items.map(stopKey));
+    saveFinished(loadFinished().filter(k=>!keys.has(k)));
+    render();
   }
   function render(){
     const box=$('routeViewList'),empty=$('routeViewEmpty'),count=$('routeViewCount'),search=$('routeSearch'); if(!box)return;
     const state=load(),q=norm(search&&search.value).toLowerCase();
-    let data=(state.data||[]).filter(x=>!isFinished(x));
+    let data=applyManualOrder((state.data||[]).filter(x=>!isFinished(x)));
     if(q)data=data.filter(x=>(x.endereco+' '+x.bairro+' '+x.sequencia).toLowerCase().includes(q));
     if(count)count.textContent=data.length;
     if(!data.length){box.innerHTML='';if(empty){empty.hidden=false;empty.querySelector('h2').textContent='Rota concluída';empty.querySelector('p').textContent='Não há entregas pendentes. As entregas finalizadas ficam removidas da lista.';}return;}
@@ -106,21 +146,81 @@
     let lastKey='',groupIndex=-1,displayNames={};
     const groupCounts={};
     data.forEach(x=>{const k=bairroKey(x.bairro||'Bairro não informado');groupCounts[k]=(groupCounts[k]||0)+1;displayNames[k]=displayNames[k]||x.bairro||'Bairro não informado';});
-    box.innerHTML=data.map((x,i)=>{
-      const bairro=x.bairro||'Bairro não informado',key=bairroKey(bairro);
+    const groups=groupSameAddresses(data);
+    box.innerHTML=groups.map((g,gi)=>{
+      const x=g.items[0], bairro=x.bairro||'Bairro não informado', key=bairroKey(bairro);
       let sep='';
       if(lastKey!==key){
         groupIndex++;const letter=String.fromCharCode(65+(groupIndex%26)),color=palette[groupIndex%palette.length];
         sep=`<div class="routeViewGroup" style="--bairro-color:${color}"><div class="routeViewLetter">${letter}</div><div class="routeViewBairro"><div class="routeBairroName"><span>${escape(displayNames[key])}</span><strong>${groupCounts[key]} ${groupCounts[key]===1?'entrega':'entregas'}</strong></div><small>GRUPO ${letter}</small></div></div>`;
         lastKey=key;
       }
-      const alertTag=x.alerta?`<button type="button" class="routeAdjustBtn" data-adjust-index="${i}">${x.pendenteBairro?'AJUSTAR BAIRRO':'AJUSTAR'}</button>`:'';
-      return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}"><div class="routeStopNum">${escape(x.numero)}</div><div class="routeStopBody"><div class="routeAddressLine"><strong><span class="routeSequenceInline">Ordem ${escape(x.sequencia||'—')}</span> — ${escape(x.endereco)}</strong></div><span>${escape(displayNames[key])}</span></div><div class="routeStopActions">${alertTag}<button type="button" class="routeFinishBtn" data-finish-index="${i}">✓</button><button type="button" class="routeRemoveBtn" data-remove-index="${i}">🗑️</button></div></div>`;
+      const alertItem=g.items.find(item=>item.alerta);
+      const alertTag=alertItem?`<button type="button" class="routeAdjustBtn" data-adjust-group="${gi}">${alertItem.pendenteBairro?'AJUSTAR BAIRRO':'AJUSTAR'}</button>`:'';
+      const dragId=encodeURIComponent(g.items.map(stopKey).join('||'));
+      const grouped=g.items.length>1;
+      const lines=g.items.map(item=>`<div class="routeAddressLine"><strong><span class="routeSequenceInline">Ordem ${escape(item.sequencia||'—')}</span> — ${escape(item.endereco)}</strong></div>`).join('');
+      const multiTag=grouped?`<div class="routeSameAddressTag">${g.items.length} entregas no mesmo endereço</div>`:'';
+      return sep+`<div class="routeStop ${alertItem?'routeStopAlert ':''}${grouped?'routeStopGrouped':''}" data-drag-id="${dragId}" data-bairro-key="${escape(key)}" title="Segure o endereço para mover">
+        <div class="routeStopNum">${grouped?g.items.length:escape(x.numero)}</div>
+        <div class="routeStopBody">${multiTag}${lines}<span>${escape(displayNames[key])}</span></div>
+        <div class="routeStopActions">${alertTag}<button type="button" class="routeFinishBtn" data-finish-group="${gi}" aria-label="Finalizar ${g.items.length} entrega${g.items.length===1?'':'s'}">✓</button></div>
+      </div>`;
     }).join('');
-    box.querySelectorAll('[data-adjust-index]').forEach(btn=>btn.onclick=()=>openAdjust(data[Number(btn.dataset.adjustIndex)]));
-    box.querySelectorAll('[data-finish-index]').forEach(btn=>btn.onclick=()=>finishStop(data[Number(btn.dataset.finishIndex)]));
-    box.querySelectorAll('[data-remove-index]').forEach(btn=>btn.onclick=()=>removeStop(data[Number(btn.dataset.removeIndex)]));
+    box.querySelectorAll('[data-adjust-group]').forEach(btn=>btn.onclick=()=>{
+      const g=groups[Number(btn.dataset.adjustGroup)];
+      const item=g.items.find(x=>x.alerta)||g.items[0];
+      openAdjust(item);
+    });
+    box.querySelectorAll('[data-finish-group]').forEach(btn=>btn.onclick=()=>finishGroup(groups[Number(btn.dataset.finishGroup)]));
+    enableLongPressReorder(box);
   }
+  function enableLongPressReorder(box){
+    let drag=null;
+    box.querySelectorAll('.routeStop[data-drag-id]').forEach(card=>{
+      let timer=null,started=false;
+      card.addEventListener('pointerdown',ev=>{
+        if(ev.button!==undefined && ev.button!==0)return;
+        if(ev.target.closest('button,input,select,a'))return;
+        const startY=ev.clientY,startX=ev.clientX;
+        timer=setTimeout(()=>{
+          started=true; drag=card; card.classList.add('routeDragging');
+          try{card.setPointerCapture(ev.pointerId)}catch(e){}
+          if(navigator.vibrate)navigator.vibrate(35);
+        },480);
+        card.__dragStart={x:startX,y:startY,pointerId:ev.pointerId};
+      });
+      const cancel=()=>{if(timer){clearTimeout(timer);timer=null} if(!started){card.__dragStart=null}};
+      card.addEventListener('pointerup',()=>{
+        if(timer){clearTimeout(timer);timer=null}
+        if(started){started=false;card.classList.remove('routeDragging');drag=null;persistDomOrder(box)}
+        card.__dragStart=null;
+      });
+      card.addEventListener('pointercancel',cancel);
+      card.addEventListener('pointerleave',()=>{
+        if(!started && card.__dragStart){const s=card.__dragStart;if(Math.abs((window.event?.clientY||s.y)-s.y)>12)cancel();}
+      });
+      card.addEventListener('pointermove',ev=>{
+        if(!started)return;
+        ev.preventDefault();
+        const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.routeStop[data-drag-id]');
+        if(!target||target===card)return;
+        if(target.dataset.bairroKey!==card.dataset.bairroKey)return;
+        const rect=target.getBoundingClientRect();
+        const before=ev.clientY < rect.top+rect.height/2;
+        if(before)target.before(card); else target.after(card);
+      });
+    });
+  }
+  function persistDomOrder(box){
+    const current=[];
+    [...box.querySelectorAll('.routeStop[data-drag-id]')].forEach(el=>{
+      const raw=decodeURIComponent(el.dataset.dragId||'');
+      raw.split('||').filter(Boolean).forEach(k=>current.push(k));
+    });
+    if(current.length)saveManualOrder(current);
+  }
+
   function show(screen){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('activeScreen'));const el=$(screen);if(el)el.classList.add('activeScreen');document.querySelectorAll('.navItem').forEach(x=>x.classList.remove('active'));const nav=screen==='screenRoute'?'navRoute':screen==='screenCadastro'?'navCadastro':'navView';$(nav)?.classList.add('active');window.scrollTo(0,0);if(screen==='screenView')render();}
   window.addEventListener('load',()=>{
     ensureModal();
