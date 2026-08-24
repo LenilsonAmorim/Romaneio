@@ -2,114 +2,77 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Organizador de Endereços</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Romaneio • Rota do dia</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <h1>Organizador de Endereços</h1>
-  <p>Cadastre suas rotas uma vez e deixe a planilha ser organizada automaticamente.</p>
+<header class="appHeader">
+  <div class="brand">ROMANEIO</div>
+  <div class="subtitle">Roteirização diária</div>
 </header>
-
 <main>
-<section class="card">
-  <h2>1. Importar planilha</h2>
-  <p class="muted">Escolha a planilha. O sistema lê os endereços, procura o bairro primeiro no endereço e depois na coluna Bairro, aplica suas sequências e mostra a lista organizada.</p>
-  <input id="file" type="file" accept=".xlsx,.xls,.csv">
-  <div id="fileInfo" class="muted">Nenhuma planilha carregada.</div>
-  <button id="analyze" disabled>Analisar e organizar novamente</button>
-</section>
-
-<section class="card">
-  <h2>2. Regras de roteirização</h2>
-  <p class="muted">Cadastre cada bairro uma única vez. Não precisa importar a planilha para cadastrar. Depois, qualquer planilha usa automaticamente essas regras.</p>
-
-  <label><b>Nome oficial do bairro</b></label>
-  <input id="routeBairroName" type="text" placeholder="Ex.: Conjunto Antônio Lins">
-
-  <label><b>Variações do bairro (opcional)</b></label>
-  <textarea id="routeBairroAliases" placeholder="Antônio Lins
-Antonio Lins
-Conj. Antônio Lins
-Antonia Lins"></textarea>
-
-  <label><b>Sequência das paradas</b></label><p class="muted">Cada linha é uma parada. Para quadras, use <b>LETRA + NÚMERO</b> (D1, D2, D9, D10). No endereço também reconhece QD-D5, QD-A1, QD-01, QD 01 e outras formas comuns. Para ruas, escreva o <b>nome completo</b>. O texto de cada linha é salvo inteiro e, quando for uma quadra, a sequência cadastrada é usada para ordenar as paradas.</p>
-  <textarea id="routeSequence" placeholder="D1
-D2
-D9
-D10
-Rua São José
-Avenida Principal"></textarea>
-
-  <button id="saveRouteRule">Salvar bairro e sequência</button>
-  <div id="routeRulesList" class="savedRules"></div>
-<div id="routeEditor" class="routeEditor" hidden>
-  <h3>Editar bairro + variações + sequência</h3>
-  <label><b>Nome oficial do bairro</b></label>
-  <input id="editRouteBairro" type="text">
-  <label><b>Variações do bairro</b></label>
-  <textarea id="editRouteAliases"></textarea>
-  <label><b>Sequência das paradas</b></label><p class="muted">Cada linha é uma parada. Para quadras, use <b>LETRA + NÚMERO</b> (D1, D2, D9, D10). No endereço também reconhece QD-D5, QD-A1, QD-01, QD 01 e outras formas comuns. Para ruas, escreva o <b>nome completo</b>. O texto de cada linha é salvo inteiro e, quando for uma quadra, a sequência cadastrada é usada para ordenar as paradas.</p>
-  <textarea id="editRouteSequence"></textarea>
-  <div class="actions">
-    <button id="saveEditedRoute">Salvar alterações</button>
-    <button id="clearEditRoute" class="secondary">Escrever novamente</button>
-    <button id="cancelEditRoute" class="secondary">Cancelar</button>
+<section id="screenRoute" class="screen activeScreen">
+  <div class="hero card">
+    <div class="eyebrow">ROTA DO DIA</div>
+    <h1>Organize suas entregas</h1>
+    <p class="muted">Escolha sua planilha e veja a rota organizada aqui mesmo.</p>
+    <label class="fileButton" for="file">📂 Adicionar planilha</label>
+    <input id="file" type="file" accept=".xlsx,.xls,.csv" class="fileInput">
+    <div id="fileInfo" class="fileInfo">Nenhuma planilha carregada.</div>
+    <button id="analyze" disabled class="primary full">🔄 Analisar novamente</button>
   </div>
-</div>
-  <div id="routeEditor" class="routeEditor" hidden>
-    <h3>Editar / escrever novamente</h3>
-    <label><b>Nome oficial do bairro</b></label>
-    <input id="editRouteBairro" type="text">
-    <label><b>Variações do bairro</b></label>
-    <textarea id="editRouteAliases"></textarea>
-    <label><b>Sequência das paradas</b></label><p class="muted">Cada linha é uma parada. Para quadras, use <b>LETRA + NÚMERO</b> (D1, D2, D9, D10). No endereço também reconhece QD-D5, QD-A1, QD-01, QD 01 e outras formas comuns. Para ruas, escreva o <b>nome completo</b>. O texto de cada linha é salvo inteiro e, quando for uma quadra, a sequência cadastrada é usada para ordenar as paradas.</p>
-    <textarea id="editRouteSequence"></textarea>
-    <div class="actions">
-      <button id="saveEditedRoute">Salvar nova sequência</button>
-      <button id="clearEditRoute" class="secondary">Limpar para escrever novamente</button><button id="cancelEditRoute" class="secondary">Cancelar</button>
-    </div>
-  </div>
-  <p class="muted">Na sequência, digite somente letra + número, por exemplo: D1, D2, D5, D10, D30. A ordem que você escrever será a ordem da sua rota.</p>
-</section>
-
-<section class="card">
-  <h2>3. Itens não reconhecidos</h2>
-  <p class="muted">Mostra os primeiros 10 casos em que o bairro não foi reconhecido. O bairro original da planilha é mantido para você saber exatamente o que veio no arquivo.</p>
-  <div id="unknownList"><span class="muted">Nenhum erro encontrado ainda.</span></div>
-</section>
-
-<section class="card">
-  <h2>4. Resultado</h2>
   <div class="stats">
     <div><strong id="count">0</strong><span>entregas</span></div>
     <div><strong id="bairros">0</strong><span>bairros</span></div>
-    <div><strong id="quadras">0</strong><span>quadras</span></div>
+    <div><strong id="quadras">0</strong><span>paradas</span></div>
   </div>
-  <div class="actions">
-    <button id="download" disabled class="secondary">Baixar XLSX</button>
-    <button id="downloadCsv" disabled class="secondary">Baixar CSV</button>
+  <div class="card resultCard">
+    <div class="eyebrow">RESULTADO</div><h2>Rota organizada</h2>
+    <p class="muted"><span class="redDot">●</span> Vermelho = bairro reconhecido, mas parada não encontrada na sequência.</p>
+    <div class="tableWrap"><table id="preview"><thead><tr><th>Nº</th><th>Endereço</th><th>Bairro</th></tr></thead><tbody></tbody></table></div>
+    <div class="actions"><button id="download" disabled class="secondary">⬇️ Baixar XLSX</button><button id="downloadCsv" disabled class="secondary">⬇️ Baixar CSV</button></div>
   </div>
-  <p class="muted"><span style="color:#b91c1c;font-weight:700">Vermelho:</span> bairro reconhecido, mas a quadra/parada não foi encontrada na sequência cadastrada. Essas paradas ficam no início do bairro.</p><div class="tableWrap">
-    <table id="preview">
-      <thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead>
-      <tbody></tbody>
-    </table>
+  <div class="card">
+    <div class="eyebrow">ATENÇÃO</div><h2>Itens para conferir</h2>
+    <p class="muted">O bairro original da planilha é mantido quando não for reconhecido.</p>
+    <div id="unknownList"><span class="muted">Nenhum erro encontrado ainda.</span></div>
   </div>
 </section>
 
-<section class="card rules">
-  <h2>Como o sistema decide</h2>
-  <p><b>1.</b> Procura o bairro no <b>Endereço</b>.</p>
-  <p><b>2.</b> Se não achar, procura o bairro na coluna <b>Bairro</b>.</p>
-  <p><b>3.</b> Se não achar nos dois, vai para <b>Não reconhecidos</b>.</p>
-  <p><b>4.</b> Depois de achar o bairro, usa somente a sequência de quadras cadastrada para aquele bairro.</p>
-  <p><b>5.</b> Na exportação, cada bairro fica separado por uma linha vazia.</p>
+<section id="screenCadastro" class="screen">
+  <div class="card">
+    <div class="eyebrow">CADASTRO</div><h2>Bairros e sequências</h2>
+    <p class="muted">Cadastre uma vez. A regra fica salva neste aparelho.</p>
+    <label><b>Nome oficial do bairro</b></label>
+    <input id="routeBairroName" type="text" placeholder="Ex.: Conjunto Antônio Lins">
+    <label><b>Variações do bairro</b></label>
+    <textarea id="routeBairroAliases" placeholder="Antônio Lins&#10;Antonio Lins&#10;Antônia Lins&#10;Conj. Antônio Lins"></textarea>
+    <label><b>Sequência das paradas</b></label>
+    <p class="muted">Uma parada por linha. Quadras: <b>D9, D10, A1</b>. Ruas podem ser escritas completas.</p>
+    <textarea id="routeSequence" placeholder="D9&#10;D10&#10;D15&#10;Rua São José&#10;Avenida Principal"></textarea>
+    <button id="saveRouteRule" class="primary full">＋ Salvar bairro e sequência</button>
+  </div>
+  <div class="card">
+    <div class="eyebrow">SALVOS</div><h2>Minhas regras</h2>
+    <div id="routeRulesList" class="savedRules"></div>
+    <div id="routeEditor" class="routeEditor" hidden>
+      <h3>Editar bairro + variações + sequência</h3>
+      <label><b>Nome oficial</b></label><input id="editRouteBairro" type="text">
+      <label><b>Variações</b></label><textarea id="editRouteAliases"></textarea>
+      <label><b>Sequência</b></label><textarea id="editRouteSequence"></textarea>
+      <div class="actions"><button id="saveEditedRoute" class="primary">Salvar alterações</button><button id="clearEditRoute" class="secondary">Escrever novamente</button><button id="cancelEditRoute" class="secondary">Cancelar</button></div>
+    </div>
+  </div>
 </section>
 </main>
-
+<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
+<script>
+(()=>{const r=document.getElementById('screenRoute'),c=document.getElementById('screenCadastro'),a=document.getElementById('navRoute'),b=document.getElementById('navCadastro');
+function show(x){let route=x==='route';r.classList.toggle('activeScreen',route);c.classList.toggle('activeScreen',!route);a.classList.toggle('active',route);b.classList.toggle('active',!route);scrollTo(0,0)}
+a.onclick=()=>show('route');b.onclick=()=>show('cadastro')})();
+</script>
 </body>
 </html>
