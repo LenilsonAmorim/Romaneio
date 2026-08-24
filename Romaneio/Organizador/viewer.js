@@ -62,22 +62,64 @@
     if(typeof analyze==='function') analyze();
     else render();
   }
+  const FINISHED_KEY='romaneio_finished_stops_v1';
+  function loadFinished(){try{return JSON.parse(localStorage.getItem(FINISHED_KEY)||'[]')||[]}catch(e){return[]}}
+  function saveFinished(v){localStorage.setItem(FINISHED_KEY,JSON.stringify(v))}
+  function stopKey(x){return String(x.originalIndex??'')+'|'+String(x.numero??'')+'|'+String(x.endereco??'')}
+  function isFinished(x){return loadFinished().includes(stopKey(x))}
+  function removeStop(x){
+    const key=stopKey(x), done=loadFinished();
+    if(done.includes(key))return;
+    if(!confirm('Remover esta entrega da lista?'))return;
+    done.push(key); saveFinished(done); render(); showUndo(x);
+  }
+  function finishStop(x){
+    const key=stopKey(x), done=loadFinished();
+    if(done.includes(key))return;
+    done.push(key);saveFinished(done);render();
+    showUndo(x);
+  }
+  function undoStop(x){
+    const key=stopKey(x),done=loadFinished().filter(k=>k!==key);saveFinished(done);render();
+  }
+  function showUndo(x){
+    let bar=$('routeUndoBar');
+    if(!bar){
+      bar=document.createElement('div');bar.id='routeUndoBar';bar.className='routeUndoBar';
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML=`<span>Entrega finalizada</span><button type="button" id="routeUndoBtn">↩ Voltar</button>`;
+    bar.hidden=false;
+    clearTimeout(window.__routeUndoTimer);
+    window.__routeUndoTimer=setTimeout(()=>{bar.hidden=true},7000);
+    $('routeUndoBtn').onclick=()=>{undoStop(x);bar.hidden=true;};
+  }
   function render(){
     const box=$('routeViewList'),empty=$('routeViewEmpty'),count=$('routeViewCount'),search=$('routeSearch'); if(!box)return;
-    const state=load(),q=norm(search&&search.value).toLowerCase(); let data=state.data||[];
+    const state=load(),q=norm(search&&search.value).toLowerCase();
+    let data=(state.data||[]).filter(x=>!isFinished(x));
     if(q)data=data.filter(x=>(x.endereco+' '+x.bairro+' '+x.sequencia).toLowerCase().includes(q));
-    if(count)count.textContent=(state.data||[]).length;
-    if(!data.length){box.innerHTML='';if(empty)empty.hidden=false;return;}
-    if(empty)empty.hidden=true;
+    if(count)count.textContent=data.length;
+    if(!data.length){box.innerHTML='';if(empty){empty.hidden=false;empty.querySelector('h2').textContent='Rota concluída';empty.querySelector('p').textContent='Não há entregas pendentes. As entregas finalizadas ficam removidas da lista.';}return;}
+    if(empty){empty.hidden=true;empty.querySelector('h2').textContent='Nenhuma rota analisada ainda';}
     const palette=['#2563eb','#059669','#7c3aed','#ea580c','#0891b2','#db2777','#65a30d','#ca8a04','#4f46e5','#0f766e'];
     let lastKey='',groupIndex=-1,displayNames={};
+    const groupCounts={};
+    data.forEach(x=>{const k=bairroKey(x.bairro||'Bairro não informado');groupCounts[k]=(groupCounts[k]||0)+1;displayNames[k]=displayNames[k]||x.bairro||'Bairro não informado';});
     box.innerHTML=data.map((x,i)=>{
-      const bairro=x.bairro||'Bairro não informado',key=bairroKey(bairro); if(!displayNames[key])displayNames[key]=bairro; let sep='';
-      if(lastKey!==key){groupIndex++;const letter=String.fromCharCode(65+(groupIndex%26)),color=palette[groupIndex%palette.length];sep=`<div class="routeViewGroup" style="--bairro-color:${color}"><div class="routeViewLetter">${letter}</div><div class="routeViewBairro"><span>${escape(displayNames[key])}</span><small>Grupo ${letter}</small></div></div>`;lastKey=key;}
+      const bairro=x.bairro||'Bairro não informado',key=bairroKey(bairro);
+      let sep='';
+      if(lastKey!==key){
+        groupIndex++;const letter=String.fromCharCode(65+(groupIndex%26)),color=palette[groupIndex%palette.length];
+        sep=`<div class="routeViewGroup" style="--bairro-color:${color}"><div class="routeViewLetter">${letter}</div><div class="routeViewBairro"><div class="routeBairroName"><span>${escape(displayNames[key])}</span><strong>${groupCounts[key]} ${groupCounts[key]===1?'entrega':'entregas'}</strong></div><small>GRUPO ${letter}</small></div></div>`;
+        lastKey=key;
+      }
       const alertTag=x.alerta?`<button type="button" class="routeAdjustBtn" data-adjust-index="${i}">${x.pendenteBairro?'AJUSTAR BAIRRO':'AJUSTAR'}</button>`:'';
-      return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}"><div class="routeStopNum">${escape(x.numero)}</div><div class="routeStopBody"><div class="routeAddressLine"><strong><span class="routeSequenceInline">Ordem ${escape(x.sequencia||'—')}</span> — ${escape(x.endereco)}</strong></div><span>${escape(displayNames[key])}</span></div>${alertTag}</div>`;
+      return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}"><div class="routeStopNum">${escape(x.numero)}</div><div class="routeStopBody"><div class="routeAddressLine"><strong><span class="routeSequenceInline">Ordem ${escape(x.sequencia||'—')}</span> — ${escape(x.endereco)}</strong></div><span>${escape(displayNames[key])}</span></div><div class="routeStopActions">${alertTag}<button type="button" class="routeFinishBtn" data-finish-index="${i}">✓</button><button type="button" class="routeRemoveBtn" data-remove-index="${i}">🗑️</button></div></div>`;
     }).join('');
     box.querySelectorAll('[data-adjust-index]').forEach(btn=>btn.onclick=()=>openAdjust(data[Number(btn.dataset.adjustIndex)]));
+    box.querySelectorAll('[data-finish-index]').forEach(btn=>btn.onclick=()=>finishStop(data[Number(btn.dataset.finishIndex)]));
+    box.querySelectorAll('[data-remove-index]').forEach(btn=>btn.onclick=()=>removeStop(data[Number(btn.dataset.removeIndex)]));
   }
   function show(screen){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('activeScreen'));const el=$(screen);if(el)el.classList.add('activeScreen');document.querySelectorAll('.navItem').forEach(x=>x.classList.remove('active'));const nav=screen==='screenRoute'?'navRoute':screen==='screenCadastro'?'navCadastro':'navView';$(nav)?.classList.add('active');window.scrollTo(0,0);if(screen==='screenView')render();}
   window.addEventListener('load',()=>{

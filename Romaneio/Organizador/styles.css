@@ -46,3 +46,41 @@
 .routeSequenceInline{display:inline-flex;align-items:center;background:#111827;color:#fff;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:900;vertical-align:middle;white-space:nowrap}.routeStopAlert .routeSequenceInline{background:#991b1b}
 
 .routeAdjustBtn{margin:0;background:#fecaca;color:#991b1b;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900;white-space:nowrap}.routeStopAlert .routeAdjustBtn{background:#b91c1c;color:#fff}.adjustModal{position:fixed;inset:0;z-index:1000}.adjustModal[hidden]{display:none}.adjustBackdrop{position:absolute;inset:0;background:rgba(15,23,42,.62)}.adjustDialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);background:#fff;border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.28)}.adjustHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.adjustHead h2{margin:2px 0 8px}.adjustClose{margin:0;background:#e5e7eb;color:#111827;width:38px;height:38px;border-radius:50%;font-size:24px;padding:0}.adjustAddress{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:11px;margin:8px 0 12px;font-size:13px;line-height:1.45}.adjustAddress span{color:#6b7280}.adjustDialog input,.adjustDialog select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:11px;font:inherit;background:#fff}.adjustDialog small{display:block;color:#6b7280;margin-top:5px;font-size:11px}.adjustActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.adjustActions button{flex:1}.modalOpen{overflow:hidden}@media(max-width:600px){.routeAdjustBtn{padding:7px 8px}.adjustDialog{top:auto;bottom:12px;transform:translateX(-50%);max-height:88vh;overflow:auto}}
+
+/* Rota compacta e prática para uso durante as entregas */
+.routeHero{padding:12px 14px;margin-bottom:10px}
+.routeHero h1{font-size:27px;line-height:1.05;margin:3px 0 8px}
+.routeHero .routeBigCount{margin:5px 0 9px}
+.routeHero .routeBigCount strong{font-size:30px}
+.routeHero .routeSearch{padding:10px 11px}
+.routeHero #refreshRouteView{margin-top:7px;padding:9px 12px}
+.routeViewGroup{position:sticky;top:0;z-index:12;margin-top:8px;margin-bottom:4px;padding-top:2px;background:#f3f4f6}
+.routeViewGroup:first-child{margin-top:0}
+.routeViewBairro{min-height:44px;padding:7px 10px}
+.routeBairroName{display:flex;align-items:center;gap:7px;min-width:0}
+.routeBairroName span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.routeBairroName strong{font-size:11px;background:#e5e7eb;color:#374151;border-radius:999px;padding:4px 7px;white-space:nowrap}
+.routeViewBairro small{white-space:nowrap}
+.routeStop{padding:8px 8px;margin-left:42px;gap:7px;min-height:56px}
+.routeStopNum{min-width:32px;width:32px;height:32px;border-radius:8px}
+.routeStopBody strong{font-size:13px;line-height:1.25}
+.routeStopBody span{font-size:11px}
+.routeStopActions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.routeAdjustBtn{font-size:9px;padding:6px 7px}
+.routeFinishBtn{margin:0;width:36px;height:36px;padding:0;border-radius:10px;background:#16a34a;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center}
+.routeFinishBtn:active{transform:scale(.94)}
+.routeUndoBar{position:fixed;left:12px;right:12px;bottom:78px;z-index:50;background:#111827;color:#fff;border-radius:12px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;font-weight:700}
+.routeUndoBar[hidden]{display:none}
+.routeUndoBar button{margin:0;background:#fff;color:#111827;padding:7px 12px;border-radius:9px;font-size:12px}
+@media(max-width:600px){
+  .routeViewGroup{top:0}
+  .routeStop{margin-left:12px}
+  .routeViewLetter{width:34px;height:34px;flex-basis:34px;border-radius:10px;font-size:18px}
+  .routeViewBairro{font-size:13px}
+  .routeBairroName strong{font-size:10px;padding:3px 6px}
+  .routeStopActions{gap:3px}
+  .routeFinishBtn{width:34px;height:34px}
+}
+
+.routeRemoveBtn{margin:0;width:36px;height:36px;padding:0;border-radius:10px;background:#dc2626;color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center}.routeRemoveBtn:active{transform:scale(.94)}
+@media(max-width:600px){.routeRemoveBtn{width:34px;height:34px}}
