@@ -213,13 +213,28 @@ function findHeaderRow(data){
 function findBairroInText(text){
  const key=normKey(text);if(!key)return "";
  const rules=loadRouteRules(),matches=[];
+
+ // Alguns conjuntos têm o mesmo nome-base de outro bairro/conjunto.
+ // Ex.: "Citta Antônio Lins" contém "Antônio Lins", mas "Citta" é
+ // a identificação específica e deve vencer a correspondência genérica.
+ const strongMarkers=["citta"];
+
  for(const r of Object.values(rules)){
   const candidates=[r.bairro,...(r.aliases||[])].map(normKey).filter(Boolean);
   for(const a of candidates){
-   if(a && key.includes(a))matches.push({bairro:r.bairro,len:a.length});
+   if(!a || !key.includes(a))continue;
+   const markerHits=strongMarkers.filter(m=>a.includes(m) && key.includes(m)).length;
+   matches.push({
+     bairro:r.bairro,
+     len:a.length,
+     priority:markerHits ? 100000 + markerHits*1000 : 0
+   });
   }
  }
- matches.sort((a,b)=>b.len-a.len);
+ matches.sort((a,b)=>
+   b.priority-a.priority ||
+   b.len-a.len
+ );
  return matches.length?matches[0].bairro:"";
 }
 
