@@ -73,6 +73,11 @@
   <div class="card">
     <div class="eyebrow">SALVOS</div><h2>Minhas regras</h2>
     <div id="routeRulesList" class="savedRules"></div>
+    <div class="variationManager">
+      <div class="eyebrow">VARIAÇÕES SALVAS</div>
+      <p class="muted">Se uma variação foi associada ao bairro errado, corrija ou remova aqui.</p>
+      <div id="savedVariationsList" class="savedVariations"></div>
+    </div>
     <div id="routeEditor" class="routeEditor" hidden>
       <h3>Editar bairro + variações + sequência</h3>
       <label><b>Nome oficial</b></label><input id="editRouteBairro" type="text">
@@ -83,7 +88,7 @@
   </div>
 </section>
 </main>
-<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navView" class="navItem">🧭<span>Minha rota</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
+<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navView" class="navItem">🗺️<span>Visualizar</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 <script src="viewer.js"></script>

@@ -93,6 +93,7 @@ function saveRouteRule(){
  };
  saveRouteRules(rules);
  renderRouteRules();
+ renderSavedVariations();
  $("routeBairroName").value="";
  $("routeBairroAliases").value="";
  $("routeSequence").value="";
@@ -151,6 +152,51 @@ function clearEditRoute(){
  $("editRouteAliases").value="";
  $("editRouteSequence").value="";
  $("editRouteBairro").focus();
+}
+
+function renderSavedVariations(){
+ const box=$("savedVariationsList");
+ if(!box)return;
+ const rules=loadRouteRules(), items=[];
+ Object.entries(rules).forEach(([key,r])=>{
+   (r.aliases||[]).forEach(alias=>{
+     const a=cleanText(alias); if(!a)return;
+     if(normKey(a)===normKey(r.bairro))return;
+     items.push({key,bairro:r.bairro,alias:a});
+   });
+ });
+ if(!items.length){box.innerHTML='<span class="muted">Nenhuma variação salva ainda.</span>';return}
+ box.innerHTML=items.map((x,i)=>`<div class="variationRow">
+   <div class="variationText"><strong>${escapeHtml(x.alias)}</strong><span>→ ${escapeHtml(x.bairro)}</span></div>
+   <div class="variationActions">
+     <button type="button" class="editBtn" data-edit-variation="${i}">Corrigir</button>
+     <button type="button" class="deleteBtn" data-delete-variation="${i}">Remover</button>
+   </div>
+ </div>`).join('');
+ box.querySelectorAll('[data-edit-variation]').forEach(btn=>btn.onclick=()=>{
+   const x=items[Number(btn.dataset.editVariation)];
+   const rules=loadRouteRules();
+   const options=Object.values(rules).map(r=>`<option value="${escapeHtml(r.bairro)}" ${normKey(r.bairro)===normKey(x.bairro)?'selected':''}>${escapeHtml(r.bairro)}</option>`).join('');
+   const escolha=prompt(`Variação: ${x.alias}\nDigite o nome EXATO do bairro correto:\n\n${Object.values(rules).map(r=>r.bairro).join('\n')}`,x.bairro);
+   if(escolha===null)return;
+   const alvo=Object.values(rules).find(r=>normKey(r.bairro)===normKey(escolha));
+   if(!alvo){alert('Bairro não encontrado. Digite o nome oficial exatamente como está cadastrado.');return}
+   const origem=rules[x.key];
+   origem.aliases=(origem.aliases||[]).filter(a=>normKey(a)!==normKey(x.alias));
+   const destKey=normKey(alvo.bairro);
+   rules[destKey].aliases=[...new Set([...(rules[destKey].aliases||[]),normKey(x.alias)])];
+   saveRouteRules(rules); renderRouteRules(); renderSavedVariations();
+   if(rows.length)analyze();
+   alert(`Variação "${x.alias}" agora pertence a ${alvo.bairro}.`);
+ });
+ box.querySelectorAll('[data-delete-variation]').forEach(btn=>btn.onclick=()=>{
+   const x=items[Number(btn.dataset.deleteVariation)];
+   const rules=loadRouteRules(),r=rules[x.key]; if(!r)return;
+   if(!confirm(`Remover a variação "${x.alias}" de ${r.bairro}?`))return;
+   r.aliases=(r.aliases||[]).filter(a=>normKey(a)!==normKey(x.alias));
+   saveRouteRules(rules); renderSavedVariations();
+   if(rows.length)analyze();
+ });
 }
 
 function findColumn(headers,patterns){
@@ -296,7 +342,7 @@ function renderUnknown(){
    const rules=loadRouteRules(),key=normKey(canonical);
    if(!rules[key]){alert("Bairro não encontrado nas regras salvas.");return}
    rules[key].aliases=[...new Set([...(rules[key].aliases||[]),normKey(alias)])];
-   saveRouteRules(rules);renderRouteRules();analyze();
+   saveRouteRules(rules);renderRouteRules();renderSavedVariations();analyze();
    alert("Variação adicionada a "+canonical+". Agora clique em Analisar novamente para reorganizar a planilha.");
  });
 }
@@ -346,4 +392,5 @@ $("downloadCsv").onclick=()=>{
  a.href=URL.createObjectURL(blob);a.download="entregas_organizadas.csv";a.click();URL.revokeObjectURL(a.href);
 };
 renderRouteRules();
+renderSavedVariations();
 renderUnknown();

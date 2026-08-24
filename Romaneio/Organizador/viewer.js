@@ -22,14 +22,28 @@
     if(count) count.textContent=(state.data||[]).length;
     if(!data.length){box.innerHTML=''; if(empty) empty.hidden=false; return;}
     if(empty) empty.hidden=true;
-    let last='';
+    const palette=['#2563eb','#059669','#7c3aed','#ea580c','#0891b2','#db2777','#65a30d','#ca8a04','#4f46e5','#0f766e'];
+    let last='', groupIndex=-1;
     box.innerHTML=data.map(x=>{
-      const sep=last!==x.bairro?`<div class="routeViewBairro"><span>${escapeHtml(x.bairro||'Bairro não informado')}</span></div>`:'';
-      last=x.bairro;
-      return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}"><div class="routeStopNum">${escapeHtml(x.numero)}</div><div class="routeStopBody"><strong>${escapeHtml(x.endereco)}</strong><span>${escapeHtml(x.bairro||'Não informado')}</span></div>${x.alerta?'<div class="routeStopAlertTag">CONFERIR</div>':''}</div>`;
+      const bairro=x.bairro||'Bairro não informado';
+      let sep='';
+      if(last!==bairro){
+        groupIndex++;
+        const letter=String.fromCharCode(65+(groupIndex%26));
+        const color=palette[groupIndex%palette.length];
+        sep=`<div class="routeViewGroup" style="--bairro-color:${color}">
+          <div class="routeViewLetter">${letter}</div>
+          <div class="routeViewBairro"><span>${escapeHtml(bairro)}</span><small>Grupo ${letter}</small></div>
+        </div>`;
+        last=bairro;
+      }
+      return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}">
+        <div class="routeStopNum">${escapeHtml(x.numero)}</div>
+        <div class="routeStopBody"><strong>${escapeHtml(x.endereco)}</strong><span>${escapeHtml(bairro)}</span></div>
+        ${x.alerta?'<div class="routeStopAlertTag">CONFERIR</div>':''}
+      </div>`;
     }).join('');
   }
-  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
   function show(screen){
     document.querySelectorAll('.screen').forEach(x=>x.classList.remove('activeScreen'));
     const el=$(screen); if(el) el.classList.add('activeScreen');
