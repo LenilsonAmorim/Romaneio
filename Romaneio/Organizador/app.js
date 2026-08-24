@@ -1,6 +1,7 @@
 let rows=[],processed=[],currentFile=null;
 const $=id=>document.getElementById(id);
 const ROUTE_RULES_KEY="romaneio_route_rules_v2";
+const ADDRESS_FIXES_KEY="romaneio_address_fixes_v1";
 
 function cleanText(v){return String(v??"").replace(/\s+/g," ").trim()}
 function normKey(v){return cleanText(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
@@ -8,6 +9,16 @@ function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 function loadRouteRules(){try{return JSON.parse(localStorage.getItem(ROUTE_RULES_KEY)||"{}")}catch(e){return {}}}
 function saveRouteRules(x){localStorage.setItem(ROUTE_RULES_KEY,JSON.stringify(x))}
+function loadAddressFixes(){try{return JSON.parse(localStorage.getItem(ADDRESS_FIXES_KEY)||"{}")||{}}catch(e){return {}}}
+function saveAddressFixes(x){localStorage.setItem(ADDRESS_FIXES_KEY,JSON.stringify(x))}
+function addressFixKey(address){return normKey(address)}
+function saveAddressFix(address,fix){
+ const key=addressFixKey(address); if(!key)return false;
+ const fixes=loadAddressFixes();
+ fixes[key]={...(fixes[key]||{}),...fix,updatedAt:Date.now()};
+ saveAddressFixes(fixes); return true;
+}
+function getAddressFix(address){return loadAddressFixes()[addressFixKey(address)]||null}
 function autoQuadraVariants(n){
  const x=String(Number(n)),p=String(Number(n)).padStart(2,"0");
  return [`Quadra ${x}`,`Quadra ${p}`,`QD${x}`,`QD ${x}`,`QD${p}`,`QD ${p}`,`Q${x}`,`Q ${x}`,`Q${p}`,`Q ${p}`,`Q D ${p}`];
@@ -268,7 +279,8 @@ function convertSheet(data){
  const hr=findHeaderRow(data),headers=(data[hr]||[]).map(cleanText);
  const addrIdx=findColumn(headers,["Endereço","Endereco","Destination Address","Address","Destino","Rua"]);
  const bairroIdx=findColumn(headers,["Bairro","Neighborhood","Distrito","Região","Regiao","District"]);
- const numIdx=findColumn(headers,["Número","Numero","Número da entrega","Stop","Sequence","Parada","Ordem","AT ID"]);
+ const numIdx=findColumn(headers,["Número","Numero","Número da entrega","Stop","Parada","Ordem","AT ID"]);
+ const seqIdx=findColumn(headers,["Sequence","Sequência","Sequencia","Seq"]);
  if(addrIdx<0)throw new Error("Não encontrei a coluna de Endereço.");
  const rules=loadRouteRules();
  return data.slice(hr+1).map((r,idx)=>{
@@ -278,6 +290,7 @@ function convertSheet(data){
    const bairro=fromAddress||fromColumn||"";
    return {
      "Número":numIdx>=0&&cleanText(r[numIdx])?cleanText(r[numIdx]):String(idx+1),
+     "Sequência":seqIdx>=0&&cleanText(r[seqIdx])?cleanText(r[seqIdx]):(numIdx>=0&&cleanText(r[numIdx])?cleanText(r[numIdx]):""),
      "Endereço":normalizeQuadras(address),
      "Bairro":bairro||columnBairro||"Não informado",
      "_bairroOriginal":columnBairro||"Não informado",
@@ -294,6 +307,17 @@ function convertSheet(data){
 function applyRouteRules(list){
  const rules=loadRouteRules(),groups=new Map();
  list.forEach(r=>{
+  const fix=getAddressFix(r["Endereço"]);
+  if(fix?.bairro){
+    const canonical=Object.values(rules).find(x=>normKey(x.bairro)===normKey(fix.bairro));
+    if(canonical){
+      r.Bairro=canonical.bairro;
+      r._pendenteBairro=false;
+      r._bairroReconhecido=true;
+      r._bairroSource="ajuste";
+    }
+  }
+  if(fix?.quadra) r._quadraAjustada=routeToken(fix.quadra);
   const key=normKey(r.Bairro)||"__NAO_RECONHECIDO__";
   if(!groups.has(key))groups.set(key,[]);
   groups.get(key).push({...r});
@@ -319,7 +343,7 @@ function applyRouteRules(list){
     });
   }else{
     items.forEach(r=>{
-      const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
+      const idx=seq.findIndex(x=>routeKey(x)===routeKey(r._quadraAjustada||r["Endereço"]));
       r._sequenceIndex=idx;
       r._quadraReconhecida=idx>=0;
     });
@@ -358,11 +382,11 @@ function render(){
  const tb=$("preview").querySelector("tbody");tb.innerHTML="";
  processed.forEach((r,i)=>{
   if(i>0&&normKey(processed[i-1].Bairro)!==normKey(r.Bairro)){
-   const sep=document.createElement("tr");sep.className="bairroSep";sep.innerHTML="<td colspan='3'></td>";tb.appendChild(sep);
+   const sep=document.createElement("tr");sep.className="bairroSep";sep.innerHTML="<td colspan='4'></td>";tb.appendChild(sep);
   }
   const tr=document.createElement("tr");
   if(r.Bairro && r._quadraReconhecida===false) tr.className="routeUnmatched";
-  ["Número","Endereço","Bairro"].forEach(k=>{const td=document.createElement("td");td.textContent=r[k];tr.appendChild(td)});
+  ["Número","Sequência","Endereço","Bairro"].forEach(k=>{const td=document.createElement("td");td.textContent=r[k];tr.appendChild(td)});
   tb.appendChild(tr);
  });
  $("count").textContent=processed.length;
@@ -431,10 +455,10 @@ $("clearEditRoute").onclick=clearEditRoute;
 $("cancelEditRoute").onclick=closeRouteEditor;
 
 function exportMatrix(){
- const out=[["Número","Endereço","Bairro"]];
+ const out=[["Número","Sequência","Endereço","Bairro"]];
  processed.forEach((r,i)=>{
   if(i>0&&normKey(processed[i-1].Bairro)!==normKey(r.Bairro))out.push(["","",""]);
-  out.push([r["Número"],r["Endereço"],r["Bairro"]]);
+  out.push([r["Número"],r["Sequência"],r["Endereço"],r["Bairro"]]);
  });
  return out;
 }

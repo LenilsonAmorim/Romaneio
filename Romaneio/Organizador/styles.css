@@ -37,3 +37,12 @@
 
 .checkLine{display:flex;align-items:flex-start;gap:8px;margin:8px 0 10px;line-height:1.35}
 .checkLine input{width:auto;margin-top:3px;accent-color:#1f2937}
+
+.routeAddressLine{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap}
+.routeSequenceBadge{display:inline-flex;align-items:center;justify-content:center;background:#111827;color:#fff;border-radius:7px;padding:4px 6px;font-size:10px;font-weight:900;white-space:nowrap;flex:0 0 auto}
+.routeStopAlert .routeSequenceBadge{background:#991b1b}
+#preview th:nth-child(2),#preview td:nth-child(2){white-space:nowrap;text-align:center}
+
+.routeSequenceInline{display:inline-flex;align-items:center;background:#111827;color:#fff;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:900;vertical-align:middle;white-space:nowrap}.routeStopAlert .routeSequenceInline{background:#991b1b}
+
+.routeAdjustBtn{margin:0;background:#fecaca;color:#991b1b;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:900;white-space:nowrap}.routeStopAlert .routeAdjustBtn{background:#b91c1c;color:#fff}.adjustModal{position:fixed;inset:0;z-index:1000}.adjustModal[hidden]{display:none}.adjustBackdrop{position:absolute;inset:0;background:rgba(15,23,42,.62)}.adjustDialog{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,520px);background:#fff;border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.28)}.adjustHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.adjustHead h2{margin:2px 0 8px}.adjustClose{margin:0;background:#e5e7eb;color:#111827;width:38px;height:38px;border-radius:50%;font-size:24px;padding:0}.adjustAddress{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:11px;margin:8px 0 12px;font-size:13px;line-height:1.45}.adjustAddress span{color:#6b7280}.adjustDialog input,.adjustDialog select{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:11px;font:inherit;background:#fff}.adjustDialog small{display:block;color:#6b7280;margin-top:5px;font-size:11px}.adjustActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.adjustActions button{flex:1}.modalOpen{overflow:hidden}@media(max-width:600px){.routeAdjustBtn{padding:7px 8px}.adjustDialog{top:auto;bottom:12px;transform:translateX(-50%);max-height:88vh;overflow:auto}}
