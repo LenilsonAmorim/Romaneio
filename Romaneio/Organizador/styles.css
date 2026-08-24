@@ -31,3 +31,6 @@
 .routeStop{margin-left:52px;position:relative;border-left:3px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.04)}
 .routeStopAlert{border-left-color:#dc2626}
 @media(max-width:600px){.variationRow{align-items:flex-start;flex-direction:column}.variationActions{width:100%}.variationActions button{flex:1}.routeStop{margin-left:26px}.routeViewLetter{width:38px;height:38px;flex-basis:38px}.routeViewBairro{font-size:14px}}
+.unknownRow{border-left:4px solid #dc2626;padding:12px;margin:10px 0;background:#fff7f7;border-radius:12px}
+.unknownActions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+.unknownActions input,.unknownActions select{width:100%;box-sizing:border-box}

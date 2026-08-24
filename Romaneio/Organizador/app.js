@@ -181,11 +181,8 @@ function renderSavedVariations(){
    if(escolha===null)return;
    const alvo=Object.values(rules).find(r=>normKey(r.bairro)===normKey(escolha));
    if(!alvo){alert('Bairro não encontrado. Digite o nome oficial exatamente como está cadastrado.');return}
-   const origem=rules[x.key];
-   origem.aliases=(origem.aliases||[]).filter(a=>normKey(a)!==normKey(x.alias));
-   const destKey=normKey(alvo.bairro);
-   rules[destKey].aliases=[...new Set([...(rules[destKey].aliases||[]),normKey(x.alias)])];
-   saveRouteRules(rules); renderRouteRules(); renderSavedVariations();
+   setBairroVariation(x.alias,alvo.bairro);
+   renderRouteRules(); renderSavedVariations();
    if(rows.length)analyze();
    alert(`Variação "${x.alias}" agora pertence a ${alvo.bairro}.`);
  });
@@ -218,10 +215,30 @@ function findBairroInText(text){
  const rules=loadRouteRules(),matches=[];
  for(const r of Object.values(rules)){
   const candidates=[r.bairro,...(r.aliases||[])].map(normKey).filter(Boolean);
-  for(const a of candidates)if(key.includes(a))matches.push({bairro:r.bairro,len:a.length});
+  for(const a of candidates){
+   if(a && key.includes(a))matches.push({bairro:r.bairro,len:a.length});
+  }
  }
  matches.sort((a,b)=>b.len-a.len);
  return matches.length?matches[0].bairro:"";
+}
+
+// Associa uma variação a um único bairro. Antes de salvar, remove a mesma
+// variação de todos os outros bairros para evitar que uma nova análise
+// continue mandando a linha para o bairro errado.
+function setBairroVariation(variation,canonical){
+ const alias=normKey(variation),dest=normKey(canonical);
+ if(!alias||!dest)return false;
+ const rules=loadRouteRules(),target=rules[dest];
+ if(!target)return false;
+ Object.values(rules).forEach(r=>{
+   r.aliases=(r.aliases||[]).filter(a=>normKey(a)!==alias);
+ });
+ if(normKey(target.bairro)!==alias){
+   target.aliases=[...new Set([...(target.aliases||[]),alias])];
+ }
+ saveRouteRules(rules);
+ return true;
 }
 
 function convertSheet(data){
@@ -242,8 +259,9 @@ function convertSheet(data){
      "Endereço":normalizeQuadras(address),
      "Bairro":bairro||columnBairro||"Não informado",
      "_bairroOriginal":columnBairro||"Não informado",
-     "_bairroReconhecido":bairro,
+     "_bairroReconhecido":!!bairro,
      "_bairroSource":fromAddress?"endereço":fromColumn?"coluna":"não reconhecido",
+     "_pendenteBairro":!bairro,
      "_quadra":extractQuadra(address),
      "_numeroCasa":extractHouseNumber(address),
      "_originalIndex":idx
@@ -258,22 +276,26 @@ function applyRouteRules(list){
   if(!groups.has(key))groups.set(key,[]);
   groups.get(key).push({...r});
  });
- const ordered=[...groups.entries()].sort((a,b)=>{
-  if(a[0]==="__NAO_RECONHECIDO__")return 1;
-  if(b[0]==="__NAO_RECONHECIDO__")return -1;
-  return a[1][0].Bairro.localeCompare(b[1][0].Bairro,"pt-BR");
- });
- const out=[];
- ordered.forEach(([key,items])=>{
-  if(key!=="__NAO_RECONHECIDO__"){
-   const rule=rules[key],seq=rule?.sequence||[];
-   items.forEach(r=>{
-     const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
-     r._sequenceIndex=idx;
-     r._quadraReconhecida=idx>=0;
-   });
-   // Primeiro vêm as paradas do bairro cuja quadra não está na sequência.
-   items.sort((a,b)=>{
+ const unresolved=[];
+ const resolvedGroups=[];
+ [...groups.entries()].forEach(([key,items])=>{
+  const isPending=items.some(r=>r._pendenteBairro);
+  if(isPending){
+    // Tudo que ainda não foi associado fica no topo da rota, mantendo o
+    // bairro original da planilha para você poder corrigir depois.
+    items.forEach(r=>{r._quadraReconhecida=false;r._sequenceIndex=-1;});
+    items.sort((a,b)=>a._originalIndex-b._originalIndex);
+    unresolved.push(...items);
+    return;
+  }
+  const rule=rules[key],seq=rule?.sequence||[];
+  items.forEach(r=>{
+    const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
+    r._sequenceIndex=idx;
+    r._quadraReconhecida=idx>=0;
+  });
+  // Dentro de cada bairro, quadras fora da sequência ficam primeiro e em vermelho.
+  items.sort((a,b)=>{
     const am=a._quadraReconhecida?1:0,bm=b._quadraReconhecida?1:0;
     if(am!==bm)return am-bm;
     if(am===0){
@@ -283,21 +305,23 @@ function applyRouteRules(list){
     if(a._sequenceIndex!==b._sequenceIndex)return a._sequenceIndex-b._sequenceIndex;
     if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
     return a._originalIndex-b._originalIndex;
-   });
-  }else{
-   items.forEach(r=>{r._quadraReconhecida=false;r._sequenceIndex=-1});
-   items.sort((a,b)=>a._originalIndex-b._originalIndex);
-  }
-  out.push(...items);
+  });
+  resolvedGroups.push(items);
  });
- return out;
+ // Pendências sempre são as primeiras linhas de tudo. Depois vêm os bairros.
+ const orderedGroups=resolvedGroups.sort((a,b)=>{
+   const aa=a[0]?.Bairro||"",bb=b[0]?.Bairro||"";
+   return aa.localeCompare(bb,"pt-BR");
+ });
+ return [...unresolved,...orderedGroups.flat()];
 }
+
 function analyze(){
  if(!rows.length)return;
  processed=applyRouteRules(rows);
  processed.forEach((r,i)=>r["Número"]=String(i+1));
  render();
- const unknown=rows.filter(r=>!r.Bairro).length;
+ const unknown=rows.filter(r=>r._pendenteBairro).length;
  $("fileInfo").innerHTML=`<span class="statusOk">${escapeHtml(currentFile?.name||"Planilha")} analisada: ${rows.length} entregas.</span> ${unknown?`<span class="statusWarn">${unknown} não reconhecida(s).</span>`:"Todos os bairros foram reconhecidos."}`;
 }
 function render(){
@@ -318,32 +342,34 @@ function render(){
  renderUnknown();
 }
 function renderUnknown(){
- const box=$("unknownList"),unknown=rows.filter(r=>!r._bairroReconhecido).slice(0,10);
- if(!unknown.length){box.innerHTML='<span class="muted">Nenhum erro encontrado ainda.</span>';return}
+ const box=$("unknownList"),unknown=rows.filter(r=>r._pendenteBairro);
+ if(!unknown.length){box.innerHTML='<span class="muted">Nenhum endereço pendente.</span>';return}
  const rules=loadRouteRules();
- box.innerHTML=unknown.map((r,i)=>`<div class="unknownRow">
-   <b>Linha ${r._originalIndex+2}</b>
+ box.innerHTML=unknown.slice(0,20).map((r,i)=>{
+   const original=cleanText(r["_bairroOriginal"]);
+   return `<div class="unknownRow">
+   <b>PRIORIDADE ${i+1} • Linha ${r._originalIndex+2}</b>
    <div class="addr"><b>Endereço:</b> ${escapeHtml(r["Endereço"])}</div>
-   <div class="addr"><b>Bairro informado:</b> ${escapeHtml(r["_bairroOriginal"]||"Não informado")}</div>
+   <div class="addr"><b>Bairro informado:</b> ${escapeHtml(original||"Não informado")}</div>
    <div class="unknownActions">
-     <input id="unknownAlias${i}" type="text" placeholder="Variação que apareceu na planilha">
+     <input id="unknownAlias${i}" type="text" value="${escapeHtml(original)}" placeholder="Variação do bairro (opcional)">
      <select id="unknownBairro${i}">
-       <option value="">Escolha o bairro correto...</option>
+       <option value="">Deixar pendente</option>
        ${Object.values(rules).map(x=>`<option value="${escapeHtml(x.bairro)}">${escapeHtml(x.bairro)}</option>`).join("")}
      </select>
-     <button type="button" data-unknown="${i}">Adicionar variação</button>
+     <button type="button" data-unknown="${i}">Salvar correção</button>
    </div>
- </div>`).join("");
+   <small class="muted">Se deixar o bairro vazio, nada é alterado e este endereço continuará nas primeiras linhas.</small>
+ </div>`;
+ }).join("");
  box.querySelectorAll("[data-unknown]").forEach(btn=>btn.onclick=()=>{
-   const i=Number(btn.dataset.unknown),canonical=$("unknownBairro"+i).value;
+   const i=Number(btn.dataset.unknown),canonical=cleanText($("unknownBairro"+i).value);
+   if(!canonical){alert("Nada foi alterado. Este endereço continuará no topo para você corrigir depois.");return}
    const alias=cleanText($("unknownAlias"+i).value)||cleanText(unknown[i]["_bairroOriginal"]);
-   if(!canonical){alert("Escolha o bairro correto.");return}
-   if(!alias||alias==="Não informado"){alert("Digite a variação do bairro que apareceu na planilha.");return}
-   const rules=loadRouteRules(),key=normKey(canonical);
-   if(!rules[key]){alert("Bairro não encontrado nas regras salvas.");return}
-   rules[key].aliases=[...new Set([...(rules[key].aliases||[]),normKey(alias)])];
-   saveRouteRules(rules);renderRouteRules();renderSavedVariations();analyze();
-   alert("Variação adicionada a "+canonical+". Agora clique em Analisar novamente para reorganizar a planilha.");
+   if(!alias||alias==="Não informado"){alert("Digite a variação do bairro ou informe o bairro correto.");return}
+   if(!setBairroVariation(alias,canonical)){alert("Não foi possível salvar a associação. Verifique se o bairro está cadastrado.");return}
+   renderRouteRules();renderSavedVariations();analyze();
+   alert(`Correção salva: "${alias}" → ${canonical}. Agora a análise foi refeita.`);
  });
 }
 
