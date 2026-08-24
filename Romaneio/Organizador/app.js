@@ -259,7 +259,18 @@ $("file").addEventListener("change",async e=>{
   analyze();
  }catch(err){$("fileInfo").textContent="Erro: "+(err.message||"Não foi possível ler a planilha.");alert(err.message||"Não foi possível ler a planilha.");}
 });
-$("analyze").onclick=analyze;
+$("analyze").onclick=async ()=>{
+ if(!currentFile)return;
+ try{
+  $("fileInfo").textContent=`Reanalisando ${currentFile.name}...`;
+  const wb=XLSX.read(await currentFile.arrayBuffer(),{type:"array"});
+  rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));
+  analyze();
+ }catch(err){
+  $("fileInfo").textContent="Erro: "+(err.message||"Não foi possível reanalisar a planilha.");
+  alert(err.message||"Não foi possível reanalisar a planilha.");
+ }
+};
 $("saveRouteRule").onclick=saveRouteRule;
 $("saveEditedRoute").onclick=saveEditedRoute;
 $("clearEditRoute").onclick=clearEditRoute;
