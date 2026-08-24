@@ -80,9 +80,19 @@ function renderRouteRules(){
  if(!keys.length){box.innerHTML='<span class="muted">Nenhuma regra salva ainda.</span>';return}
  box.innerHTML=keys.map(k=>{
    const r=rules[k],seq=(r.sequence||[]).map(n=>"QD "+n).join(" → ");
-   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(seq||"Sem sequência")}</div></div><button type="button" class="editBtn" data-edit-route="${escapeHtml(k)}">Editar</button></div>`;
+   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(seq||"Sem sequência")}</div></div><div class="ruleButtons"><button type="button" class="editBtn" data-edit-route="${escapeHtml(k)}">Editar</button><button type="button" class="deleteBtn" data-delete-route="${escapeHtml(k)}">Remover</button></div></div>`;
  }).join("");
  box.querySelectorAll("[data-edit-route]").forEach(btn=>btn.onclick=()=>openRouteEditor(btn.dataset.editRoute));
+ box.querySelectorAll("[data-delete-route]").forEach(btn=>btn.onclick=()=>{
+   const key=btn.dataset.deleteRoute, rules=loadRouteRules(), r=rules[key];
+   if(!r)return;
+   if(!confirm(`Remover o bairro "${r.bairro}" e toda a sequência salva?`))return;
+   delete rules[key];
+   saveRouteRules(rules);
+   if(editingRouteKey===key)closeRouteEditor();
+   renderRouteRules();
+   if(rows.length)analyze();
+ });
 }
 function openRouteEditor(key){
  const rules=loadRouteRules(),r=rules[key];if(!r)return;
