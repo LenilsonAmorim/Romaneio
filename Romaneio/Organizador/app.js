@@ -81,7 +81,8 @@ function saveRouteRule(){
  if(!bairro){alert("Digite o nome oficial do bairro.");return}
  const aliases=$("routeBairroAliases").value.split(/\r?\n/).map(cleanText).filter(Boolean);
  const seq=[...new Set($("routeSequence").value.split(/\r?\n/).map(routeToken).filter(Boolean))];
- if(!seq.length){alert("Digite pelo menos uma quadra na sequência.");return}
+ const noQuadra=!!$("routeNoQuadra").checked;
+ if(!seq.length && !noQuadra){alert("Digite pelo menos uma quadra na sequência ou marque “não usa quadra”.");return}
  const rules=loadRouteRules(),key=normKey(bairro);
  const existing=rules[key]||{};
  const generated=[bairro,bairro.replace(/\bConjunto\b/gi,"Conj"),bairro.replace(/\bConjunto\b/gi,"Conj."),bairro.normalize("NFD").replace(/[\u0300-\u036f]/g,"")];
@@ -89,6 +90,7 @@ function saveRouteRule(){
    bairro,
    aliases:[...new Set([...(existing.aliases||[]),...generated.map(normKey),...aliases.map(normKey)])],
    sequence:seq,
+   noQuadra:!!$("routeNoQuadra").checked,
    variants:Object.fromEntries(seq.map(n=>[n,autoQuadraVariants(n)]))
  };
  saveRouteRules(rules);
@@ -97,6 +99,7 @@ function saveRouteRule(){
  $("routeBairroName").value="";
  $("routeBairroAliases").value="";
  $("routeSequence").value="";
+ $("routeNoQuadra").checked=false;
  alert("Bairro e sequência salvos para "+bairro+".");
 }
 function renderRouteRules(){
@@ -104,7 +107,8 @@ function renderRouteRules(){
  if(!keys.length){box.innerHTML='<span class="muted">Nenhuma regra salva ainda.</span>';return}
  box.innerHTML=keys.map(k=>{
    const r=rules[k],seq=(r.sequence||[]).map(n=>"QD "+n).join(" → ");
-   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(seq||"Sem sequência")}</div></div><div class="ruleButtons"><button type="button" class="editBtn" data-edit-route="${escapeHtml(k)}">Editar</button><button type="button" class="deleteBtn" data-delete-route="${escapeHtml(k)}">Remover</button></div></div>`;
+   const desc=r.noQuadra?"Sem quadras — nome do local é suficiente":(seq||"Sem sequência");
+   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(desc)}</div></div><div class="ruleButtons"><button type="button" class="editBtn" data-edit-route="${escapeHtml(k)}">Editar</button><button type="button" class="deleteBtn" data-delete-route="${escapeHtml(k)}">Remover</button></div></div>`;
  }).join("");
  box.querySelectorAll("[data-edit-route]").forEach(btn=>btn.onclick=()=>openRouteEditor(btn.dataset.editRoute));
  box.querySelectorAll("[data-delete-route]").forEach(btn=>btn.onclick=()=>{
@@ -124,6 +128,7 @@ function openRouteEditor(key){
  $("editRouteBairro").value=r.bairro||"";
  $("editRouteAliases").value=(r.aliases||[]).join("\n");
  $("editRouteSequence").value=(r.sequence||[]).join("\n");
+ $("editRouteNoQuadra").checked=!!r.noQuadra;
  $("routeEditor").hidden=false;
 }
 function closeRouteEditor(){
@@ -137,11 +142,12 @@ function saveEditedRoute(){
  const aliases=$("editRouteAliases").value.split(/\r?\n/).map(cleanText).filter(Boolean);
  const seq=[...new Set($("editRouteSequence").value.split(/\r?\n/).map(routeToken).filter(Boolean))];
  if(!bairro){alert("Digite o nome oficial do bairro.");return}
- if(!seq.length){alert("Digite pelo menos uma quadra.");return}
+ const noQuadra=!!$("editRouteNoQuadra").checked;
+ if(!seq.length && !noQuadra){alert("Digite pelo menos uma quadra ou marque “não usa quadra”.");return}
  const rules=loadRouteRules();
  delete rules[oldKey];
  const key=normKey(bairro);
- rules[key]={bairro,aliases:[...new Set(aliases.map(normKey))],sequence:seq,variants:Object.fromEntries(seq.map(n=>[n,autoQuadraVariants(n)]))};
+ rules[key]={bairro,aliases:[...new Set(aliases.map(normKey))],sequence:seq,noQuadra,variants:Object.fromEntries(seq.map(n=>[n,autoQuadraVariants(n)]))};
  saveRouteRules(rules);
  closeRouteEditor();
  renderRouteRules();
@@ -151,6 +157,7 @@ function clearEditRoute(){
  $("editRouteBairro").value="";
  $("editRouteAliases").value="";
  $("editRouteSequence").value="";
+ $("editRouteNoQuadra").checked=false;
  $("editRouteBairro").focus();
 }
 
@@ -304,11 +311,19 @@ function applyRouteRules(list){
     return;
   }
   const rule=rules[key],seq=rule?.sequence||[];
-  items.forEach(r=>{
-    const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
-    r._sequenceIndex=idx;
-    r._quadraReconhecida=idx>=0;
-  });
+  if(rule?.noQuadra){
+    // Condomínios/bairros sem quadra: o reconhecimento do nome já basta.
+    items.forEach((r,i)=>{
+      r._sequenceIndex=0;
+      r._quadraReconhecida=true;
+    });
+  }else{
+    items.forEach(r=>{
+      const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
+      r._sequenceIndex=idx;
+      r._quadraReconhecida=idx>=0;
+    });
+  }
   // Dentro de cada bairro, quadras fora da sequência ficam primeiro e em vermelho.
   items.sort((a,b)=>{
     const am=a._quadraReconhecida?1:0,bm=b._quadraReconhecida?1:0;

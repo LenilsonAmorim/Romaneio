@@ -13,6 +13,9 @@
     render();
   }
   function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')||{data:[]}}catch(e){return {data:[]}}}
+  function bairroKey(v){
+    return norm(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').toLowerCase();
+  }
   function render(){
     const box=$('routeViewList'),empty=$('routeViewEmpty'),count=$('routeViewCount'),search=$('routeSearch');
     if(!box)return;
@@ -23,23 +26,27 @@
     if(!data.length){box.innerHTML=''; if(empty) empty.hidden=false; return;}
     if(empty) empty.hidden=true;
     const palette=['#2563eb','#059669','#7c3aed','#ea580c','#0891b2','#db2777','#65a30d','#ca8a04','#4f46e5','#0f766e'];
-    let last='', groupIndex=-1;
+    let lastKey='', groupIndex=-1, displayNames={};
     box.innerHTML=data.map(x=>{
       const bairro=x.bairro||'Bairro não informado';
+      const key=bairroKey(bairro);
+      // Treat capitalization, accents and repeated spaces as the same bairro.
+      // Example: Mata do rolo / Mata Do Rolo / MATA DO ROLO -> one group.
+      if(!displayNames[key]) displayNames[key]=bairro;
       let sep='';
-      if(last!==bairro){
+      if(lastKey!==key){
         groupIndex++;
         const letter=String.fromCharCode(65+(groupIndex%26));
         const color=palette[groupIndex%palette.length];
         sep=`<div class="routeViewGroup" style="--bairro-color:${color}">
           <div class="routeViewLetter">${letter}</div>
-          <div class="routeViewBairro"><span>${escapeHtml(bairro)}</span><small>Grupo ${letter}</small></div>
+          <div class="routeViewBairro"><span>${escapeHtml(displayNames[key])}</span><small>Grupo ${letter}</small></div>
         </div>`;
-        last=bairro;
+        lastKey=key;
       }
       return sep+`<div class="routeStop ${x.alerta?'routeStopAlert':''}">
         <div class="routeStopNum">${escapeHtml(x.numero)}</div>
-        <div class="routeStopBody"><strong>${escapeHtml(x.endereco)}</strong><span>${escapeHtml(bairro)}</span></div>
+        <div class="routeStopBody"><strong>${escapeHtml(x.endereco)}</strong><span>${escapeHtml(displayNames[key])}</span></div>
         ${x.alerta?'<div class="routeStopAlertTag">CONFERIR</div>':''}
       </div>`;
     }).join('');

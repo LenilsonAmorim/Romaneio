@@ -66,7 +66,8 @@
     <label><b>Variações do bairro</b></label>
     <textarea id="routeBairroAliases" placeholder="Antônio Lins&#10;Antonio Lins&#10;Antônia Lins&#10;Conj. Antônio Lins"></textarea>
     <label><b>Sequência das paradas</b></label>
-    <p class="muted">Uma parada por linha. Quadras: <b>D9, D10, A1</b>. Ruas podem ser escritas completas.</p>
+    <label class="checkLine"><input id="routeNoQuadra" type="checkbox"> <span>Este bairro/condomínio não usa quadra: somente o nome do local vale</span></label>
+    <p class="muted">Se marcar esta opção, não precisa cadastrar quadras. Qualquer endereço reconhecido por este bairro será considerado válido e não ficará vermelho por falta de quadra.</p>
     <textarea id="routeSequence" placeholder="D9&#10;D10&#10;D15&#10;Rua São José&#10;Avenida Principal"></textarea>
     <button id="saveRouteRule" class="primary full">＋ Salvar bairro e sequência</button>
   </div>
@@ -82,7 +83,9 @@
       <h3>Editar bairro + variações + sequência</h3>
       <label><b>Nome oficial</b></label><input id="editRouteBairro" type="text">
       <label><b>Variações</b></label><textarea id="editRouteAliases"></textarea>
-      <label><b>Sequência</b></label><textarea id="editRouteSequence"></textarea>
+      <label><b>Sequência</b></label>
+      <label class="checkLine"><input id="editRouteNoQuadra" type="checkbox"> <span>Este bairro/condomínio não usa quadra</span></label>
+      <textarea id="editRouteSequence"></textarea>
       <div class="actions"><button id="saveEditedRoute" class="primary">Salvar alterações</button><button id="clearEditRoute" class="secondary">Escrever novamente</button><button id="cancelEditRoute" class="secondary">Cancelar</button></div>
     </div>
   </div>
