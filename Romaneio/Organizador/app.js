@@ -14,19 +14,16 @@ function autoQuadraVariants(n){
 }
 function quadraNumber(text){
  const s=cleanText(text);
- // Rota cadastrada: somente LETRA + NÚMERO (ex.: D9, D10, A1).
  let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
- if(m)return String(Number(m[2]));
- // Para reconhecer a planilha, aceita as formas comuns que equivalem à quadra.
- m=s.match(/\bquadra\s*(?:d\s*)?[-.:]?\s*0*(\d+)\b/i);
- if(!m)m=s.match(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/i);
- if(!m)m=s.match(/\bq\s+d\s*[-.:]?\s*0*(\d+)\b/i);
- return m?String(Number(m[1])):"";
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+ m=s.match(/\bquadra\s*([A-Za-z])\s*[-.:]?\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+ m=s.match(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/i);
+ if(m)return "D"+String(Number(m[1]));
+ return "";
 }
 function normalizeQuadras(text){
- const n=quadraNumber(text);
- if(!n)return cleanText(text);
- return cleanText(text).replace(/\bquadra\s*(?:d\s*)?[-.:]?\s*0*\d+\b/i,"QD "+n);
+ return cleanText(text);
 }
 function extractQuadra(text){const n=quadraNumber(text);return n?Number(n):999999}
 function extractHouseNumber(text){
@@ -81,7 +78,7 @@ function openRouteEditor(key){
  editingRouteKey=key;
  $("editRouteBairro").value=r.bairro||"";
  $("editRouteAliases").value=(r.aliases||[]).join("\n");
- $("editRouteSequence").value=(r.sequence||[]).map(n=>"Quadra "+String(Number(n)).padStart(2,"0")).join("\n");
+ $("editRouteSequence").value=(r.sequence||[]).join("\n");
  $("routeEditor").hidden=false;
 }
 function closeRouteEditor(){
