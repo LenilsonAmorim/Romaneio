@@ -19,10 +19,10 @@
     if($('adjustModal'))return;
     const d=document.createElement('div'); d.id='adjustModal'; d.className='adjustModal'; d.hidden=true;
     d.innerHTML=`<div class="adjustBackdrop"></div><div class="adjustDialog" role="dialog" aria-modal="true">
-      <div class="adjustHead"><div><div class="eyebrow">AJUSTE DA ROTA</div><h2 id="adjustTitle">Ajustar</h2></div><button type="button" id="adjustClose" class="adjustClose">×</button></div>
+      <div class="adjustHead"><div><div class="eyebrow">AJUSTE DA ROTA</div><h2 id="adjustTitle">Ajustar endereço</h2></div><button type="button" id="adjustClose" class="adjustClose">×</button></div>
       <div id="adjustAddress" class="adjustAddress"></div>
-      <div id="adjustQuadraArea"><label><b>Quadra correta</b></label><input id="adjustQuadra" type="text" placeholder="Ex.: D65, A3, D10"><small>Digite somente a letra e o número. Ex.: D65 ou A3.</small></div>
-      <div id="adjustBairroArea" hidden><label><b>Bairro correto</b></label><select id="adjustBairro"></select><small>Escolha o bairro correto. Depois de salvar, esta entrega será realocada automaticamente.</small></div>
+      <div id="adjustBairroArea"><label><b>Bairro correto</b></label><select id="adjustBairro"></select><small>Se o bairro estiver errado, escolha o correto. A entrega será realocada automaticamente.</small></div>
+      <div id="adjustQuadraArea"><label><b>Quadra correta <span class="muted">(opcional)</span></b></label><input id="adjustQuadra" type="text" placeholder="Ex.: D65, A3, D10"><small>Se precisar corrigir a quadra, digite somente a letra e o número.</small></div>
       <div class="adjustActions"><button type="button" id="adjustSave" class="primary">💾 Salvar e realocar</button><button type="button" id="adjustCancel" class="secondary">Cancelar</button></div>
     </div>`;
     document.body.appendChild(d);
@@ -32,32 +32,43 @@
   let editing=null;
   function openAdjust(item){
     ensureModal(); editing=item;
-    const pending=!!item.pendenteBairro;
-    $('adjustTitle').textContent=pending?'Informar bairro correto':'Ajustar quadra';
+    $('adjustTitle').textContent='Ajustar bairro ou quadra';
     $('adjustAddress').innerHTML='<b>Endereço:</b> '+escape(item.endereco)+'<br><span>Bairro atual: '+escape(item.bairro||'Não informado')+'</span>';
-    $('adjustQuadraArea').hidden=pending; $('adjustBairroArea').hidden=!pending;
-    if(pending){
-      const rules=loadRouteRules();
-      $('adjustBairro').innerHTML='<option value="">Selecione o bairro</option>'+Object.values(rules).map(r=>'<option value="'+escape(r.bairro)+'">'+escape(r.bairro)+'</option>').join('');
-    }else{
-      $('adjustQuadra').value=item.quadraAjustada||''; setTimeout(()=>$('adjustQuadra').focus(),50);
-    }
+
+    const rules=loadRouteRules();
+    const current=item.bairro||'';
+    const options=Object.values(rules).map(r=>'<option value="'+escape(r.bairro)+'" '+(bairroKey(r.bairro)===bairroKey(current)?'selected':'')+'>'+escape(r.bairro)+'</option>').join('');
+    $('adjustBairro').innerHTML='<option value="">'+(current?'Manter bairro atual':'Selecione o bairro')+'</option>'+options;
+    $('adjustQuadra').value=item.quadraAjustada||'';
+    $('adjustQuadraArea').hidden=false;
     $('adjustModal').hidden=false; document.body.classList.add('modalOpen');
   }
   function closeModal(){editing=null;if($('adjustModal'))$('adjustModal').hidden=true;document.body.classList.remove('modalOpen');}
   function saveAdjustment(){
     if(!editing)return;
-    if(editing.pendenteBairro){
-      const bairro=norm($('adjustBairro').value);
-      if(!bairro){alert('Escolha o bairro correto.');return;}
-      if(!saveAddressFix(editing.endereco,{bairro})){alert('Não foi possível salvar.');return;}
-    }else{
-      const q=norm($('adjustQuadra').value);
-      if(!q){alert('Digite a quadra correta. Ex.: D65 ou A3.');return;}
+    const bairro=norm($('adjustBairro').value);
+    const q=norm($('adjustQuadra').value);
+    const fix={};
+    let changed=false;
+
+    if(bairro){
+      const rules=loadRouteRules();
+      const canonical=Object.values(rules).find(r=>bairroKey(r.bairro)===bairroKey(bairro));
+      if(!canonical){alert('Escolha um bairro cadastrado.');return;}
+      // Só grava bairro quando o usuário realmente escolheu outro.
+      if(bairroKey(canonical.bairro)!==bairroKey(editing.bairro||'')){
+        fix.bairro=canonical.bairro; changed=true;
+      }
+    }
+
+    if(q){
       const token=routeToken(q);
       if(!token){alert('Digite uma quadra válida, como D65, A3 ou D10.');return;}
-      if(!saveAddressFix(editing.endereco,{quadra:token})){alert('Não foi possível salvar.');return;}
+      fix.quadra=token; changed=true;
     }
+
+    if(!changed){alert('Altere o bairro ou informe uma quadra para salvar.');return;}
+    if(!saveAddressFix(editing.endereco,fix)){alert('Não foi possível salvar.');return;}
     closeModal();
     if(typeof analyze==='function') analyze();
     else render();
