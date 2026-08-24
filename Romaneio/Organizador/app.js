@@ -12,6 +12,17 @@ function autoQuadraVariants(n){
  const x=String(Number(n)),p=String(Number(n)).padStart(2,"0");
  return [`Quadra ${x}`,`Quadra ${p}`,`QD${x}`,`QD ${x}`,`QD${p}`,`QD ${p}`,`Q${x}`,`Q ${x}`,`Q${p}`,`Q ${p}`,`Q D ${p}`];
 }
+function routeToken(text){
+ const s=cleanText(text);
+ if(!s)return "";
+ const q=quadraNumber(s);
+ return q || s;
+}
+function routeKey(text){
+ const s=cleanText(text);
+ const q=quadraNumber(s);
+ return q ? "Q:"+q : "T:"+normKey(s);
+}
 function quadraNumber(text){
  const s=cleanText(text);
  let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
@@ -46,7 +57,7 @@ function saveRouteRule(){
  const bairro=cleanText($("routeBairroName").value);
  if(!bairro){alert("Digite o nome oficial do bairro.");return}
  const aliases=$("routeBairroAliases").value.split(/\r?\n/).map(cleanText).filter(Boolean);
- const seq=[...new Set($("routeSequence").value.split(/\r?\n/).map(quadraNumber).filter(Boolean))];
+ const seq=[...new Set($("routeSequence").value.split(/\r?\n/).map(routeToken).filter(Boolean))];
  if(!seq.length){alert("Digite pelo menos uma quadra na sequência.");return}
  const rules=loadRouteRules(),key=normKey(bairro);
  const existing=rules[key]||{};
@@ -90,7 +101,7 @@ function saveEditedRoute(){
  const oldKey=editingRouteKey;
  const bairro=cleanText($("editRouteBairro").value);
  const aliases=$("editRouteAliases").value.split(/\r?\n/).map(cleanText).filter(Boolean);
- const seq=[...new Set($("editRouteSequence").value.split(/\r?\n/).map(quadraNumber).filter(Boolean))];
+ const seq=[...new Set($("editRouteSequence").value.split(/\r?\n/).map(routeToken).filter(Boolean))];
  if(!bairro){alert("Digite o nome oficial do bairro.");return}
  if(!seq.length){alert("Digite pelo menos uma quadra.");return}
  const rules=loadRouteRules();
@@ -177,8 +188,9 @@ function applyRouteRules(list){
    const rule=rules[key],seq=rule?.sequence||[];
    items.sort((a,b)=>{
     if(seq.length){
-     const ia=seq.indexOf(String(a._quadra)),ib=seq.indexOf(String(b._quadra));
-     if(ia>=0||ib>=0){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
+     const aKey=routeKey(a["Endereço"]), bKey=routeKey(b["Endereço"]);
+     let ia=seq.findIndex(x=>routeKey(x)===aKey), ib=seq.findIndex(x=>routeKey(x)===bKey);
+     if(ia>=0||ib){if(ia<0)return 1;if(ib<0)return -1;if(ia!==ib)return ia-ib}
     }
     if(a._quadra!==b._quadra)return a._quadra-b._quadra;
     if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
