@@ -8,3 +8,5 @@
 
 .ruleButtons{display:flex;gap:6px;flex-wrap:wrap}
 .deleteBtn{margin-top:0;padding:8px 12px;background:#b91c1c}
+
+.routeUnmatched td{background:#fee2e2!important;color:#991b1b;font-weight:700}

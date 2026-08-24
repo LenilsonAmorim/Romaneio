@@ -15,38 +15,31 @@ function autoQuadraVariants(n){
 function quadraNumber(text){
  const s=cleanText(text);
 
- // Sequência cadastrada: letra + número (D5, A1 etc.).
- let m=s.match(/^\s*([A-Za-z])\s*0*(\d+)\s*$/);
+ // Rota cadastrada: letra + número (D5, A1, QA3 -> A3).
+ let m=s.match(/^\s*(?:Q\s*)?([A-Za-z])\s*0*(\d+)\s*$/i);
  if(m)return m[1].toUpperCase()+String(Number(m[2]));
 
- // Formas encontradas no endereço:
- // QD- D5, QD-D5, QD- A1, QD-A1, QD-01, QD01, QD 01,
- // Quadra D5, Quadra A1, Quadra 01.
- m=s.match(/\b(?:qd|quadra)\s*-\s*([A-Za-z])\s*0*(\d+)\b/i);
+ // QA3 / Q A3 / Q-A3 / Q A 3 -> A3.
+ m=s.match(/\bq\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
  if(m)return m[1].toUpperCase()+String(Number(m[2]));
 
- m=s.match(/\b(?:qd|quadra)\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
+ // QD-D5, QD-A1, QD-01, QD01, QD 01.
+ m=s.match(/\bqd\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
  if(m)return m[1].toUpperCase()+String(Number(m[2]));
-
- // QD-01 / QD01 / QD 01 sem letra = D01.
- m=s.match(/\bqd\s*-\s*0*(\d+)\b/i);
+ m=s.match(/\bqd\s*[-.:]?\s*0*(\d+)\b/i);
  if(m)return "D"+String(Number(m[1]));
 
- m=s.match(/\bqd\s*0*(\d+)\b/i);
+ // Quadra D5 / Quadra A1 / Quadra 01.
+ m=s.match(/\bquadra\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
+ if(m)return m[1].toUpperCase()+String(Number(m[2]));
+ m=s.match(/\bquadra\s*[-.:]?\s*0*(\d+)\b/i);
  if(m)return "D"+String(Number(m[1]));
 
- // QD D5 / Q D D5.
- m=s.match(/\bq\s*d\s*[-.:]?\s*([A-Za-z])\s*0*(\d+)\b/i);
- if(m)return m[1].toUpperCase()+String(Number(m[2]));
-
- // Q5 / Q-5 / Q 5 = D5.
+ // Q-3 / Q 3 / Q3 -> D3 (quando não há letra).
  m=s.match(/\bq\s*[-.:]?\s*0*(\d+)\b/i);
  if(m)return "D"+String(Number(m[1]));
 
- // Quadra D5 / D5 isolado dentro do endereço.
- m=s.match(/\bquadra\s*([A-Za-z])\s*[-.:]?\s*0*(\d+)\b/i);
- if(m)return m[1].toUpperCase()+String(Number(m[2]));
-
+ // Token isolado A3, D9 etc. dentro do endereço.
  m=s.match(/(?:^|[\s,;\/-])([A-Za-z])\s*0*(\d+)(?=$|[\s,;\/-])/);
  if(m)return m[1].toUpperCase()+String(Number(m[2]));
 
@@ -228,26 +221,31 @@ function applyRouteRules(list){
  ordered.forEach(([key,items])=>{
   if(key!=="__NAO_RECONHECIDO__"){
    const rule=rules[key],seq=rule?.sequence||[];
+   items.forEach(r=>{
+     const idx=seq.findIndex(x=>routeKey(x)===routeKey(r["Endereço"]));
+     r._sequenceIndex=idx;
+     r._quadraReconhecida=idx>=0;
+   });
+   // Primeiro vêm as paradas do bairro cuja quadra não está na sequência.
    items.sort((a,b)=>{
-    if(seq.length){
-     const ia=seq.findIndex(x=>routeKey(x)===routeKey(a["Endereço"]));
-     const ib=seq.findIndex(x=>routeKey(x)===routeKey(b["Endereço"]));
-     if(ia>=0||ib>=0){
-       if(ia<0)return 1;
-       if(ib<0)return -1;
-       if(ia!==ib)return ia-ib;
-     }
-   }
-    if(a._quadra!==b._quadra)return a._quadra-b._quadra;
+    const am=a._quadraReconhecida?1:0,bm=b._quadraReconhecida?1:0;
+    if(am!==bm)return am-bm;
+    if(am===0){
+      if(a._quadra!==b._quadra)return a._quadra-b._quadra;
+      return a._originalIndex-b._originalIndex;
+    }
+    if(a._sequenceIndex!==b._sequenceIndex)return a._sequenceIndex-b._sequenceIndex;
     if(a._numeroCasa!==b._numeroCasa)return a._numeroCasa-b._numeroCasa;
     return a._originalIndex-b._originalIndex;
    });
-  }else items.sort((a,b)=>a._originalIndex-b._originalIndex);
+  }else{
+   items.forEach(r=>{r._quadraReconhecida=false;r._sequenceIndex=-1});
+   items.sort((a,b)=>a._originalIndex-b._originalIndex);
+  }
   out.push(...items);
  });
  return out;
 }
-
 function analyze(){
  if(!rows.length)return;
  processed=applyRouteRules(rows);
@@ -263,6 +261,7 @@ function render(){
    const sep=document.createElement("tr");sep.className="bairroSep";sep.innerHTML="<td colspan='3'></td>";tb.appendChild(sep);
   }
   const tr=document.createElement("tr");
+  if(r.Bairro && r._quadraReconhecida===false) tr.className="routeUnmatched";
   ["Número","Endereço","Bairro"].forEach(k=>{const td=document.createElement("td");td.textContent=r[k];tr.appendChild(td)});
   tb.appendChild(tr);
  });
