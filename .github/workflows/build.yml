@@ -1,4 +1,4 @@
-name: Gerar APK Romaneio - Base Estavel
+name: Gerar APK Romaneio - Base Antiga Corrigida
 
 on:
   workflow_dispatch:
@@ -22,30 +22,20 @@ jobs:
 
       - name: Verificar projeto
         run: |
-          echo "=== ESTRUTURA DO REPOSITÓRIO ==="
-          find . -maxdepth 4 -type f | sort
+          echo "Verificando projeto Android..."
+          test -f RomaneioBuild/android/settings.gradle
+          test -f RomaneioBuild/android/build.gradle
+          test -f RomaneioBuild/android/app/build.gradle
+          echo "Projeto encontrado!"
 
-          echo "=== PROJETOS GRADLE ==="
-          find . -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \
-          \) | sort
-
-      - name: Procurar APK antigo
+      - name: Gerar APK
         run: |
-          find . -type f -name "*.apk" -print || true
+          cd RomaneioBuild/android
+          gradle assembleDebug --no-daemon
 
-      - name: Procurar projeto Android
-        run: |
-          if [ -d "android" ]; then
-            echo "Pasta android encontrada"
-          elif [ -f "settings.gradle" ]; then
-            echo "Projeto Gradle na raiz"
-          elif [ -f "settings.gradle.kts" ]; then
-            echo "Projeto Gradle Kotlin na raiz"
-          else
-            echo "Projeto Android ainda não está na estrutura esperada."
-            exit 1
-          fi
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Romaneio-APK-Corrigido
+          path: RomaneioBuild/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
