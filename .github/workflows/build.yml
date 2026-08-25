@@ -22,7 +22,6 @@ jobs:
             unzip -q "romaneio-apk.zip" -d android-project
           else
             echo "ERRO: Nenhum pacote Android encontrado."
-            find . -maxdepth 3 -type f | sort
             exit 1
           fi
 
@@ -32,7 +31,17 @@ jobs:
             -path "*/res/drawable/romaneio_logo.xml" \
             -delete
 
-          echo "Logo XML duplicado removido."
+      - name: Corrigir SDK de compilação
+        run: |
+          find android-project -type f -name "build.gradle" -o -name "build.gradle.kts" | while read FILE; do
+            sed -i -E \
+              's/(compileSdkVersion[[:space:]]+)[0-9]+/\135/g;
+               s/(compileSdk[[:space:]]*=[[:space:]]*)[0-9]+/\135/g;
+               s/(compileSdk[[:space:]]+)[0-9]+/\135/g' "$FILE"
+          done
+
+          echo "Verificando configurações:"
+          grep -Rni "compileSdk" android-project --include="build.gradle" --include="build.gradle.kts" || true
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
@@ -53,11 +62,10 @@ jobs:
 
           if [ -z "$ROOT" ]; then
             echo "ERRO: Nenhum projeto Gradle encontrado."
-            find android-project -maxdepth 6 -type f | sort | head -300
             exit 1
           fi
 
-          echo "Projeto Gradle encontrado em: $ROOT"
+          echo "Projeto encontrado em: $ROOT"
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
 
       - name: Gerar APK
