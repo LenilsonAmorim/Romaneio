@@ -1,4 +1,4 @@
-name: Gerar APK Romaneio - Icone Capa Atualizado
+name: Gerar APK Romaneio - Base Estavel
 
 on:
   workflow_dispatch:
@@ -20,25 +20,19 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Extrair projeto Android
+      - name: Verificar ferramentas
         run: |
-          rm -rf android-project
-          mkdir android-project
-
-          unzip -q -o romaneio-icon-capa-corrigido.zip -d android-project
-
-          test -f android-project/settings.gradle
-          test -f android-project/build.gradle
-          test -f android-project/app/build.gradle
+          java -version
+          gradle --version
 
       - name: Gerar APK
         run: |
-          cd android-project
+          cd android
           gradle assembleDebug --no-daemon
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio-Icone-Capa-Atualizado
-          path: android-project/app/build/outputs/apk/debug/app-debug.apk
+          name: Romaneio-APK-Capa-e-Icone
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
