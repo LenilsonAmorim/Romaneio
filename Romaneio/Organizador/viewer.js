@@ -189,30 +189,39 @@
   function enableLongPressReorder(box){
     let drag=null;
     box.querySelectorAll('.routeStop[data-drag-id]').forEach(card=>{
-      let timer=null,started=false;
+      let timer=null,started=false,moved=false,startX=0,startY=0,pointerId=null;
+      const stopTimer=()=>{if(timer){clearTimeout(timer);timer=null}};
+      const finish=()=>{
+        stopTimer();
+        if(started){
+          started=false;
+          card.classList.remove('routeDragging');
+          card.style.touchAction='';
+          try{if(pointerId!=null)card.releasePointerCapture(pointerId)}catch(e){}
+          drag=null;
+          persistDomOrder(box);
+        }
+        pointerId=null;moved=false;
+      };
       card.addEventListener('pointerdown',ev=>{
-        if(ev.button!==undefined && ev.button!==0)return;
+        if(ev.pointerType==='mouse' && ev.button!==0)return;
         if(ev.target.closest('button,input,select,a'))return;
-        const startY=ev.clientY,startX=ev.clientX;
+        startX=ev.clientX;startY=ev.clientY;pointerId=ev.pointerId;moved=false;
+        stopTimer();
         timer=setTimeout(()=>{
-          started=true; drag=card; card.classList.add('routeDragging');
-          try{card.setPointerCapture(ev.pointerId)}catch(e){}
-          if(navigator.vibrate)navigator.vibrate(35);
-        },480);
-        card.__dragStart={x:startX,y:startY,pointerId:ev.pointerId};
-      });
-      const cancel=()=>{if(timer){clearTimeout(timer);timer=null} if(!started){card.__dragStart=null}};
-      card.addEventListener('pointerup',()=>{
-        if(timer){clearTimeout(timer);timer=null}
-        if(started){started=false;card.classList.remove('routeDragging');drag=null;persistDomOrder(box)}
-        card.__dragStart=null;
-      });
-      card.addEventListener('pointercancel',cancel);
-      card.addEventListener('pointerleave',()=>{
-        if(!started && card.__dragStart){const s=card.__dragStart;if(Math.abs((window.event?.clientY||s.y)-s.y)>12)cancel();}
-      });
+          started=true;drag=card;card.classList.add('routeDragging');
+          // Enquanto estiver arrastando, o gesto pertence ao cartão e não à rolagem da página.
+          card.style.touchAction='none';
+          try{card.setPointerCapture(pointerId)}catch(e){}
+          if(navigator.vibrate)navigator.vibrate(45);
+        },420);
+      },{passive:true});
+
       card.addEventListener('pointermove',ev=>{
-        if(!started)return;
+        if(!started){
+          if(Math.hypot(ev.clientX-startX,ev.clientY-startY)>14)stopTimer();
+          return;
+        }
         ev.preventDefault();
         const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.routeStop[data-drag-id]');
         if(!target||target===card)return;
@@ -220,7 +229,11 @@
         const rect=target.getBoundingClientRect();
         const before=ev.clientY < rect.top+rect.height/2;
         if(before)target.before(card); else target.after(card);
-      });
+      },{passive:false});
+
+      card.addEventListener('pointerup',finish,{passive:true});
+      card.addEventListener('pointercancel',finish,{passive:true});
+      card.addEventListener('lostpointercapture',()=>{if(started)finish();},{passive:true});
     });
   }
   function persistDomOrder(box){

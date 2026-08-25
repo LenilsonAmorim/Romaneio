@@ -84,7 +84,8 @@
 
 .routeRemoveBtn{margin:0;width:36px;height:36px;padding:0;border-radius:10px;background:#dc2626;color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center}.routeRemoveBtn:active{transform:scale(.94)}
 @media(max-width:600px){.routeRemoveBtn{width:34px;height:34px}}
-.routeStop{touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.routeStop{touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;position:relative}
+.routeStop.routeDragging{touch-action:none}
 .routeStop.routeDragging{opacity:.72;transform:scale(1.015);box-shadow:0 12px 30px rgba(15,23,42,.2);z-index:30;cursor:grabbing}
 .routeStop::after{content:'Segure para mover';position:absolute;right:8px;bottom:3px;font-size:8px;color:#9ca3af;opacity:0;transition:opacity .15s;pointer-events:none}
 .routeStop:active::after{opacity:.8}
