@@ -20,19 +20,32 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Verificar ferramentas
+      - name: Verificar projeto
         run: |
-          java -version
-          gradle --version
+          echo "=== ESTRUTURA DO REPOSITÓRIO ==="
+          find . -maxdepth 4 -type f | sort
 
-      - name: Gerar APK
+          echo "=== PROJETOS GRADLE ==="
+          find . -type f \( \
+            -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \
+            -o -name "build.gradle" \
+            -o -name "build.gradle.kts" \
+          \) | sort
+
+      - name: Procurar APK antigo
         run: |
-          cd android
-          gradle assembleDebug --no-daemon
+          find . -type f -name "*.apk" -print || true
 
-      - name: Disponibilizar APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Romaneio-APK-Capa-e-Icone
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Procurar projeto Android
+        run: |
+          if [ -d "android" ]; then
+            echo "Pasta android encontrada"
+          elif [ -f "settings.gradle" ]; then
+            echo "Projeto Gradle na raiz"
+          elif [ -f "settings.gradle.kts" ]; then
+            echo "Projeto Gradle Kotlin na raiz"
+          else
+            echo "Projeto Android ainda não está na estrutura esperada."
+            exit 1
+          fi
