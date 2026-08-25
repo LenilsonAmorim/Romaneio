@@ -1,4 +1,4 @@
-name: Gerar APK Romaneio - Base Antiga
+name: Gerar APK Romaneio
 
 on:
   workflow_dispatch:
@@ -8,42 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar arquivos
+      - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Extrair projeto Android
-        run: |
-          rm -rf android-project
-          mkdir -p android-project
-
-          if [ -f "Romaneio-base-antiga-icone-capa.zip" ]; then
-            unzip -q "Romaneio-base-antiga-icone-capa.zip" -d android-project
-          elif [ -f "romaneio-apk.zip" ]; then
-            unzip -q "romaneio-apk.zip" -d android-project
-          else
-            echo "ERRO: Nenhum pacote Android encontrado."
-            exit 1
-          fi
-
-      - name: Remover recurso duplicado do logo
-        run: |
-          find android-project -type f \
-            -path "*/res/drawable/romaneio_logo.xml" \
-            -delete
-
-      - name: Corrigir SDK de compilação
-        run: |
-          find android-project -type f -name "build.gradle" -o -name "build.gradle.kts" | while read FILE; do
-            sed -i -E \
-              's/(compileSdkVersion[[:space:]]+)[0-9]+/\135/g;
-               s/(compileSdk[[:space:]]*=[[:space:]]*)[0-9]+/\135/g;
-               s/(compileSdk[[:space:]]+)[0-9]+/\135/g' "$FILE"
-          done
-
-          echo "Verificando configurações:"
-          grep -Rni "compileSdk" android-project --include="build.gradle" --include="build.gradle.kts" || true
-
-      - name: Configurar Java 17
+      - name: Configurar Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -52,8 +20,29 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Encontrar projeto Android
+        run: |
+          unzip -q "Romaneio/RomaneioApp_autoatualizavel.zip" -d android-project
+
+          echo "Arquivos encontrados:"
+          find android-project -maxdepth 5 -type f | sort
+
+      - name: Configurar endereço do site
+        run: |
+          FILE=$(find android-project -type f -name "MainActivity.java" -print -quit)
+
+          if [ -z "$FILE" ]; then
+            echo "MainActivity.java não encontrado."
+            exit 1
+          fi
+
+          sed -i 's#https://[^"]*#https://lenilsonamorim.github.io/Romaneio/#g' "$FILE"
+
+          echo "Site configurado:"
+          grep -n "loadUrl" "$FILE" || true
+
       - name: Encontrar projeto Gradle
-        id: gradle_project
+        id: project
         run: |
           ROOT=$(find android-project \
             -type f \
@@ -61,16 +50,16 @@ jobs:
             -print -quit | xargs -r dirname)
 
           if [ -z "$ROOT" ]; then
-            echo "ERRO: Nenhum projeto Gradle encontrado."
+            echo "Projeto Gradle não encontrado."
             exit 1
           fi
 
-          echo "Projeto encontrado em: $ROOT"
+          echo "Projeto: $ROOT"
           echo "root=$ROOT" >> "$GITHUB_OUTPUT"
 
       - name: Gerar APK
         run: |
-          cd "${{ steps.gradle_project.outputs.root }}"
+          cd "${{ steps.project.outputs.root }}"
           gradle assembleDebug --no-daemon
 
       - name: Localizar APK
@@ -82,16 +71,16 @@ jobs:
             -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "ERRO: APK não foi gerado."
+            echo "APK não encontrado."
             exit 1
           fi
 
-          echo "APK encontrado: $APK"
+          echo "APK: $APK"
           echo "path=$APK" >> "$GITHUB_OUTPUT"
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio Base Antiga
+          name: Romaneio APK
           path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
