@@ -127,10 +127,72 @@
     render();
     showUndo(keys,keys.length);
   }
+
+  const BAIRRO_ORDER_KEY='romaneio_bairro_order_v1';
+  function loadBairroOrder(){try{return JSON.parse(localStorage.getItem(BAIRRO_ORDER_KEY)||'[]')||[]}catch(e){return[]}}
+  function saveBairroOrder(v){localStorage.setItem(BAIRRO_ORDER_KEY,JSON.stringify(v))}
+  function applyBairroOrder(data){
+    const order=loadBairroOrder();
+    if(!order.length)return data;
+    const pos=new Map(order.map((k,i)=>[k,i]));
+    return data.map((x,i)=>({x,i,k:bairroKey(x.bairro||'Bairro não informado')}))
+      .sort((a,b)=>{
+        const pa=pos.has(a.k)?pos.get(a.k):1000000+a.i;
+        const pb=pos.has(b.k)?pos.get(b.k):1000000+b.i;
+        return pa-pb;
+      }).map(o=>o.x);
+  }
+  function openBairroOrder(){
+    const state=load(), data=applyManualOrder((state.data||[]).filter(x=>!isFinished(x)));
+    const keys=[], names={};
+    data.forEach(x=>{const k=bairroKey(x.bairro||'Bairro não informado');if(!keys.includes(k))keys.push(k);names[k]=names[k]||x.bairro||'Bairro não informado';});
+    const saved=loadBairroOrder();
+    keys.sort((a,b)=>{
+      const pa=saved.indexOf(a),pb=saved.indexOf(b);
+      return (pa<0?9999:pa)-(pb<0?9999:pb);
+    });
+    const modal=document.createElement('div');
+    modal.className='bairroOrderModal';
+    modal.innerHTML=`<div class="bairroOrderBackdrop"></div><div class="bairroOrderDialog">
+      <div class="bairroOrderHead"><div><div class="eyebrow">ORDEM DA ROTA</div><h2>Escolha qual bairro fazer primeiro</h2></div><button type="button" class="bairroOrderClose">×</button></div>
+      <p class="bairroOrderHint">Segure um bairro e arraste para cima ou para baixo.</p>
+      <div class="bairroOrderList">${keys.map((k,i)=>`<div class="bairroOrderItem" draggable="true" data-bairro-order="${escape(k)}"><span class="bairroOrderNum">${i+1}</span><strong>${escape(names[k])}</strong><span class="bairroDrag">☷</span></div>`).join('')}</div>
+      <div class="bairroOrderActions"><button type="button" class="bairroOrderSave primary">Salvar ordem</button><button type="button" class="bairroOrderCancel secondary">Cancelar</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    const list=modal.querySelector('.bairroOrderList');
+    let dragging=null;
+    list.querySelectorAll('.bairroOrderItem').forEach(item=>{
+      item.addEventListener('dragstart',()=>{dragging=item;item.classList.add('dragging')});
+      item.addEventListener('dragend',()=>{item.classList.remove('dragging');dragging=null;renumber()});
+      item.addEventListener('dragover',e=>{
+        e.preventDefault(); if(!dragging||dragging===item)return;
+        const r=item.getBoundingClientRect();
+        if(e.clientY<r.top+r.height/2)item.before(dragging);else item.after(dragging);
+      });
+      let timer=null,startY=0,touchDrag=false;
+      item.addEventListener('touchstart',e=>{startY=e.touches[0].clientY;timer=setTimeout(()=>{touchDrag=true;dragging=item;item.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(35)},420)},{passive:true});
+      item.addEventListener('touchmove',e=>{
+        if(!touchDrag){if(Math.abs(e.touches[0].clientY-startY)>12)clearTimeout(timer);return;}
+        e.preventDefault();
+        const target=document.elementFromPoint(e.touches[0].clientX,e.touches[0].clientY)?.closest('.bairroOrderItem');
+        if(target&&target!==dragging){const r=target.getBoundingClientRect();if(e.touches[0].clientY<r.top+r.height/2)target.before(dragging);else target.after(dragging);renumber();}
+      },{passive:false});
+      item.addEventListener('touchend',()=>{clearTimeout(timer);if(dragging){dragging.classList.remove('dragging');dragging=null}touchDrag=false;renumber()});
+    });
+    function renumber(){list.querySelectorAll('.bairroOrderItem').forEach((el,i)=>el.querySelector('.bairroOrderNum').textContent=i+1)}
+    modal.querySelector('.bairroOrderClose').onclick=modal.querySelector('.bairroOrderCancel').onclick=()=>modal.remove();
+    modal.querySelector('.bairroOrderBackdrop').onclick=()=>modal.remove();
+    modal.querySelector('.bairroOrderSave').onclick=()=>{
+      saveBairroOrder([...list.querySelectorAll('.bairroOrderItem')].map(x=>x.dataset.bairroOrder));
+      modal.remove(); render();
+    };
+  }
+
   function render(){
     const box=$('routeViewList'),empty=$('routeViewEmpty'),count=$('routeViewCount'),search=$('routeSearch'); if(!box)return;
     const state=load(),q=norm(search&&search.value).toLowerCase();
-    let data=applyManualOrder((state.data||[]).filter(x=>!isFinished(x)));
+    let data=applyBairroOrder(applyManualOrder((state.data||[]).filter(x=>!isFinished(x))));
     if(q)data=data.filter(x=>(x.endereco+' '+x.bairro+' '+x.sequencia).toLowerCase().includes(q));
     if(count)count.textContent=data.length;
     if(!data.length){box.innerHTML='';if(empty){empty.hidden=false;empty.querySelector('h2').textContent='Rota concluída';empty.querySelector('p').textContent='Não há entregas pendentes. As entregas finalizadas ficam removidas da lista.';}return;}
@@ -200,5 +262,7 @@
     ensureModal();
     const table=$('preview'); if(table){new MutationObserver(()=>saveFromProcessed()).observe(table.querySelector('tbody'),{childList:true,subtree:true});setTimeout(saveFromProcessed,500);}
     $('navRoute')?.addEventListener('click',()=>show('screenRoute'));$('navCadastro')?.addEventListener('click',()=>show('screenCadastro'));$('navView')?.addEventListener('click',()=>show('screenView'));$('routeSearch')?.addEventListener('input',render);$('refreshRouteView')?.addEventListener('click',()=>{saveFromProcessed();render();});render();
+    const orderBtn=document.getElementById('routeBairroOrderBtn');
+    if(orderBtn)orderBtn.onclick=openBairroOrder;
   });
 })();
