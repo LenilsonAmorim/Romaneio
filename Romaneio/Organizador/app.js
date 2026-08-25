@@ -1,5 +1,4 @@
 let rows=[],processed=[],currentFile=null;
-let currentFileKey="";
 const $=id=>document.getElementById(id);
 const ROUTE_RULES_KEY="romaneio_route_rules_v2";
 const ADDRESS_FIXES_KEY="romaneio_address_fixes_v1";
@@ -444,26 +443,9 @@ function renderUnknown(){
  });
 }
 
-function resetRouteForNewFile(){
-  try{
-    localStorage.removeItem('romaneio_last_route_view_v1');
-    localStorage.removeItem('romaneio_finished_stops_v1');
-    localStorage.removeItem('romaneio_manual_route_order_v1');
-  }catch(e){}
-  processed=[];
-  const preview=$("preview");
-  if(preview){const tb=preview.querySelector("tbody");if(tb)tb.innerHTML="";}
-  if($("routeViewList"))$("routeViewList").innerHTML="";
-}
-function fileIdentity(f){return f ? [f.name,f.size,f.lastModified].join("|") : "";}
-
 $("file").addEventListener("change",async e=>{
  const f=e.target.files[0];if(!f)return;
- const nextKey=fileIdentity(f);
- const isNewFile=nextKey!==currentFileKey;
- if(isNewFile)resetRouteForNewFile();
- currentFile=f;currentFileKey=nextKey;
- $("fileInfo").textContent=`Lendo ${f.name}...`;$("analyze").disabled=true;
+ currentFile=f;$("fileInfo").textContent=`Lendo ${f.name}...`;$("analyze").disabled=true;
  try{
   const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
   rows=convertSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""}));
@@ -473,9 +455,7 @@ $("file").addEventListener("change",async e=>{
 });
 $("analyze").onclick=async ()=>{
  if(!currentFile)return;
- $("fileInfo").textContent=`Reanalisando ${currentFile.name} do zero...`;
- // Cada clique em Analisar reconstrói a lista a partir do arquivo original.
- // Para uma nova planilha, estados da rota anterior já foram limpos no change.
+ $("fileInfo").textContent=`Reanalisando ${currentFile.name}...`;
  await reanalyzeCurrentFile();
 };
 $("saveRouteRule").onclick=saveRouteRule;

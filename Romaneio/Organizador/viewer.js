@@ -19,10 +19,10 @@
     if($('adjustModal'))return;
     const d=document.createElement('div'); d.id='adjustModal'; d.className='adjustModal'; d.hidden=true;
     d.innerHTML=`<div class="adjustBackdrop"></div><div class="adjustDialog" role="dialog" aria-modal="true">
-      <div class="adjustHead"><div><div class="eyebrow">AJUSTE DA ROTA</div><h2 id="adjustTitle">Ajustar endereço</h2></div><button type="button" id="adjustClose" class="adjustClose">×</button></div>
+      <div class="adjustHead"><div><div class="eyebrow">AJUSTE DA ROTA</div><h2 id="adjustTitle">Ajustar</h2></div><button type="button" id="adjustClose" class="adjustClose">×</button></div>
       <div id="adjustAddress" class="adjustAddress"></div>
-      <div id="adjustBairroArea"><label><b>Bairro correto</b></label><select id="adjustBairro"></select><small>Se o bairro estiver errado, escolha o correto. A entrega será realocada automaticamente.</small></div>
-      <div id="adjustQuadraArea"><label><b>Quadra correta <span class="muted">(opcional)</span></b></label><input id="adjustQuadra" type="text" placeholder="Ex.: D65, A3, D10"><small>Se precisar corrigir a quadra, digite somente a letra e o número.</small></div>
+      <div id="adjustQuadraArea"><label><b>Quadra correta</b></label><input id="adjustQuadra" type="text" placeholder="Ex.: D65, A3, D10"><small>Digite somente a letra e o número. Ex.: D65 ou A3.</small></div>
+      <div id="adjustBairroArea" hidden><label><b>Bairro correto</b></label><select id="adjustBairro"></select><small>Escolha o bairro correto. Depois de salvar, esta entrega será realocada automaticamente.</small></div>
       <div class="adjustActions"><button type="button" id="adjustSave" class="primary">💾 Salvar e realocar</button><button type="button" id="adjustCancel" class="secondary">Cancelar</button></div>
     </div>`;
     document.body.appendChild(d);
@@ -32,43 +32,32 @@
   let editing=null;
   function openAdjust(item){
     ensureModal(); editing=item;
-    $('adjustTitle').textContent='Ajustar bairro ou quadra';
+    const pending=!!item.pendenteBairro;
+    $('adjustTitle').textContent=pending?'Informar bairro correto':'Ajustar quadra';
     $('adjustAddress').innerHTML='<b>Endereço:</b> '+escape(item.endereco)+'<br><span>Bairro atual: '+escape(item.bairro||'Não informado')+'</span>';
-
-    const rules=loadRouteRules();
-    const current=item.bairro||'';
-    const options=Object.values(rules).map(r=>'<option value="'+escape(r.bairro)+'" '+(bairroKey(r.bairro)===bairroKey(current)?'selected':'')+'>'+escape(r.bairro)+'</option>').join('');
-    $('adjustBairro').innerHTML='<option value="">'+(current?'Manter bairro atual':'Selecione o bairro')+'</option>'+options;
-    $('adjustQuadra').value=item.quadraAjustada||'';
-    $('adjustQuadraArea').hidden=false;
+    $('adjustQuadraArea').hidden=pending; $('adjustBairroArea').hidden=!pending;
+    if(pending){
+      const rules=loadRouteRules();
+      $('adjustBairro').innerHTML='<option value="">Selecione o bairro</option>'+Object.values(rules).map(r=>'<option value="'+escape(r.bairro)+'">'+escape(r.bairro)+'</option>').join('');
+    }else{
+      $('adjustQuadra').value=item.quadraAjustada||''; setTimeout(()=>$('adjustQuadra').focus(),50);
+    }
     $('adjustModal').hidden=false; document.body.classList.add('modalOpen');
   }
   function closeModal(){editing=null;if($('adjustModal'))$('adjustModal').hidden=true;document.body.classList.remove('modalOpen');}
   function saveAdjustment(){
     if(!editing)return;
-    const bairro=norm($('adjustBairro').value);
-    const q=norm($('adjustQuadra').value);
-    const fix={};
-    let changed=false;
-
-    if(bairro){
-      const rules=loadRouteRules();
-      const canonical=Object.values(rules).find(r=>bairroKey(r.bairro)===bairroKey(bairro));
-      if(!canonical){alert('Escolha um bairro cadastrado.');return;}
-      // Só grava bairro quando o usuário realmente escolheu outro.
-      if(bairroKey(canonical.bairro)!==bairroKey(editing.bairro||'')){
-        fix.bairro=canonical.bairro; changed=true;
-      }
-    }
-
-    if(q){
+    if(editing.pendenteBairro){
+      const bairro=norm($('adjustBairro').value);
+      if(!bairro){alert('Escolha o bairro correto.');return;}
+      if(!saveAddressFix(editing.endereco,{bairro})){alert('Não foi possível salvar.');return;}
+    }else{
+      const q=norm($('adjustQuadra').value);
+      if(!q){alert('Digite a quadra correta. Ex.: D65 ou A3.');return;}
       const token=routeToken(q);
       if(!token){alert('Digite uma quadra válida, como D65, A3 ou D10.');return;}
-      fix.quadra=token; changed=true;
+      if(!saveAddressFix(editing.endereco,{quadra:token})){alert('Não foi possível salvar.');return;}
     }
-
-    if(!changed){alert('Altere o bairro ou informe uma quadra para salvar.');return;}
-    if(!saveAddressFix(editing.endereco,fix)){alert('Não foi possível salvar.');return;}
     closeModal();
     if(typeof analyze==='function') analyze();
     else render();
@@ -79,6 +68,8 @@
   function saveFinished(v){localStorage.setItem(FINISHED_KEY,JSON.stringify(v))}
   function loadManualOrder(){try{return JSON.parse(localStorage.getItem(MANUAL_ORDER_KEY)||'[]')||[]}catch(e){return[]}}
   function saveManualOrder(v){localStorage.setItem(MANUAL_ORDER_KEY,JSON.stringify(v))}
+  function stopKey(x){return String(x.originalIndex??'')+'|'+String(x.numero??'')+'|'+String(x.endereco??'')}
+  function isFinished(x){return loadFinished().includes(stopKey(x))}
   function applyManualOrder(data){
     const order=loadManualOrder(); if(!order.length)return data;
     const pos=new Map(order.map((k,i)=>[k,i]));
@@ -88,35 +79,32 @@
       return pa-pb;
     }).map(o=>o.x);
   }
-  function stopKey(x){return String(x.originalIndex??'')+'|'+String(x.numero??'')+'|'+String(x.endereco??'')}
-  function isFinished(x){return loadFinished().includes(stopKey(x))}
-  function removeStop(x){
-    const key=stopKey(x), done=loadFinished();
-    if(done.includes(key))return;
-    if(!confirm('Remover esta entrega da lista?'))return;
-    done.push(key); saveFinished(done); render(); showUndo(x);
-  }
   function finishStop(x){
     const key=stopKey(x), done=loadFinished();
     if(done.includes(key))return;
-    done.push(key);saveFinished(done);render();
-    showUndo(x);
+    saveFinished([...done,key]);
+    render();
+    showUndo([key],1);
   }
-  function undoStop(x){
-    const key=stopKey(x),done=loadFinished().filter(k=>k!==key);saveFinished(done);render();
+  function undoFinishedKeys(keys){
+    const wanted=new Set((keys||[]).filter(Boolean));
+    if(!wanted.size)return;
+    saveFinished(loadFinished().filter(k=>!wanted.has(k)));
+    render();
   }
-  function showUndo(x){
+  function showUndo(keys,count){
     let bar=$('routeUndoBar');
     if(!bar){
       bar=document.createElement('div');bar.id='routeUndoBar';bar.className='routeUndoBar';
       document.body.appendChild(bar);
     }
-    const many=Array.isArray(x.items)&&x.items.length>1;
-    bar.innerHTML=`<span>${many?x.items.length+' entregas finalizadas':'Entrega finalizada'}</span><button type="button" id="routeUndoBtn">↩ Voltar</button>`;
+    const safeKeys=[...(keys||[])].filter(Boolean);
+    bar.innerHTML=`<span>${count>1?count+' entregas finalizadas':'Entrega finalizada'}</span><button type="button" id="routeUndoBtn">↩ Voltar</button>`;
     bar.hidden=false;
     clearTimeout(window.__routeUndoTimer);
     window.__routeUndoTimer=setTimeout(()=>{bar.hidden=true},7000);
-    $('routeUndoBtn').onclick=()=>{many?undoGroup(x):undoStop(x);bar.hidden=true;};
+    const btn=$('routeUndoBtn');
+    if(btn){btn.onclick=()=>{undoFinishedKeys(safeKeys);bar.hidden=true;};}
   }
   function addressGroupKey(x){
     const b=bairroKey(x.bairro||'Bairro não informado');
@@ -127,23 +115,17 @@
     const groups=[]; const map=new Map();
     data.forEach(x=>{
       const key=addressGroupKey(x);
-      if(!map.has(key)){ const g={key,items:[]}; map.set(key,g); groups.push(g); }
+      if(!map.has(key)){const g={key,items:[]};map.set(key,g);groups.push(g);}
       map.get(key).items.push(x);
     });
     return groups;
   }
   function finishGroup(group){
-    const done=loadFinished();
-    const keys=group.items.map(stopKey).filter(k=>!done.includes(k));
+    const keys=group.items.map(stopKey).filter(k=>!loadFinished().includes(k));
     if(!keys.length)return;
-    saveFinished([...new Set([...done,...keys])]);
+    saveFinished([...new Set([...loadFinished(),...keys])]);
     render();
-    showUndo(group);
-  }
-  function undoGroup(group){
-    const keys=new Set(group.items.map(stopKey));
-    saveFinished(loadFinished().filter(k=>!keys.has(k)));
-    render();
+    showUndo(keys,keys.length);
   }
   function render(){
     const box=$('routeViewList'),empty=$('routeViewEmpty'),count=$('routeViewCount'),search=$('routeSearch'); if(!box)return;
@@ -159,7 +141,7 @@
     data.forEach(x=>{const k=bairroKey(x.bairro||'Bairro não informado');groupCounts[k]=(groupCounts[k]||0)+1;displayNames[k]=displayNames[k]||x.bairro||'Bairro não informado';});
     const groups=groupSameAddresses(data);
     box.innerHTML=groups.map((g,gi)=>{
-      const x=g.items[0], bairro=x.bairro||'Bairro não informado', key=bairroKey(bairro);
+      const x=g.items[0],bairro=x.bairro||'Bairro não informado',key=bairroKey(bairro);
       let sep='';
       if(lastKey!==key){
         groupIndex++;const letter=String.fromCharCode(65+(groupIndex%26)),color=palette[groupIndex%palette.length];
@@ -172,65 +154,36 @@
       const grouped=g.items.length>1;
       const lines=g.items.map(item=>`<div class="routeAddressLine"><strong><span class="routeSequenceInline">Ordem ${escape(item.sequencia||'—')}</span> — ${escape(item.endereco)}</strong></div>`).join('');
       const multiTag=grouped?`<div class="routeSameAddressTag">${g.items.length} entregas no mesmo endereço</div>`:'';
-      return sep+`<div class="routeStop ${alertItem?'routeStopAlert ':''}${grouped?'routeStopGrouped':''}" data-drag-id="${dragId}" data-bairro-key="${escape(key)}" title="Segure o endereço para mover">
-        <div class="routeStopNum">${grouped?g.items.length:escape(x.numero)}</div>
-        <div class="routeStopBody">${multiTag}${lines}<span>${escape(displayNames[key])}</span></div>
-        <div class="routeStopActions">${alertTag}<button type="button" class="routeFinishBtn" data-finish-group="${gi}" aria-label="Finalizar ${g.items.length} entrega${g.items.length===1?'':'s'}">✓</button></div>
-      </div>`;
+      return sep+`<div class="routeStop ${alertItem?'routeStopAlert ':''}${grouped?'routeStopGrouped':''}" data-drag-id="${dragId}" data-bairro-key="${escape(key)}" title="Segure o endereço para mover"><div class="routeStopNum">${grouped?g.items.length:escape(x.numero)}</div><div class="routeStopBody">${multiTag}${lines}<span>${escape(displayNames[key])}</span></div><div class="routeStopActions">${alertTag}<button type="button" class="routeFinishBtn" data-finish-group="${gi}" aria-label="Finalizar ${g.items.length} entrega${g.items.length===1?'':'s'}">✓</button></div></div>`;
     }).join('');
-    box.querySelectorAll('[data-adjust-group]').forEach(btn=>btn.onclick=()=>{
-      const g=groups[Number(btn.dataset.adjustGroup)];
-      const item=g.items.find(x=>x.alerta)||g.items[0];
-      openAdjust(item);
-    });
+    box.querySelectorAll('[data-adjust-group]').forEach(btn=>btn.onclick=()=>{const g=groups[Number(btn.dataset.adjustGroup)];const item=g.items.find(x=>x.alerta)||g.items[0];openAdjust(item);});
     box.querySelectorAll('[data-finish-group]').forEach(btn=>btn.onclick=()=>finishGroup(groups[Number(btn.dataset.finishGroup)]));
     enableLongPressReorder(box);
   }
   function enableLongPressReorder(box){
     let drag=null;
     box.querySelectorAll('.routeStop[data-drag-id]').forEach(card=>{
-      let timer=null,started=false,moved=false,startX=0,startY=0,pointerId=null;
+      let timer=null,started=false,startX=0,startY=0,pointerId=null;
       const stopTimer=()=>{if(timer){clearTimeout(timer);timer=null}};
       const finish=()=>{
         stopTimer();
-        if(started){
-          started=false;
-          card.classList.remove('routeDragging');
-          card.style.touchAction='';
-          try{if(pointerId!=null)card.releasePointerCapture(pointerId)}catch(e){}
-          drag=null;
-          persistDomOrder(box);
-        }
-        pointerId=null;moved=false;
+        if(started){started=false;card.classList.remove('routeDragging');card.style.touchAction='';try{if(pointerId!=null)card.releasePointerCapture(pointerId)}catch(e){}drag=null;persistDomOrder(box);}
+        pointerId=null;
       };
       card.addEventListener('pointerdown',ev=>{
-        if(ev.pointerType==='mouse' && ev.button!==0)return;
+        if(ev.pointerType==='mouse'&&ev.button!==0)return;
         if(ev.target.closest('button,input,select,a'))return;
-        startX=ev.clientX;startY=ev.clientY;pointerId=ev.pointerId;moved=false;
-        stopTimer();
-        timer=setTimeout(()=>{
-          started=true;drag=card;card.classList.add('routeDragging');
-          // Enquanto estiver arrastando, o gesto pertence ao cartão e não à rolagem da página.
-          card.style.touchAction='none';
-          try{card.setPointerCapture(pointerId)}catch(e){}
-          if(navigator.vibrate)navigator.vibrate(45);
-        },420);
+        startX=ev.clientX;startY=ev.clientY;pointerId=ev.pointerId;stopTimer();
+        timer=setTimeout(()=>{started=true;drag=card;card.classList.add('routeDragging');card.style.touchAction='none';try{card.setPointerCapture(pointerId)}catch(e){}if(navigator.vibrate)navigator.vibrate(45);},420);
       },{passive:true});
-
       card.addEventListener('pointermove',ev=>{
-        if(!started){
-          if(Math.hypot(ev.clientX-startX,ev.clientY-startY)>14)stopTimer();
-          return;
-        }
+        if(!started){if(Math.hypot(ev.clientX-startX,ev.clientY-startY)>14)stopTimer();return;}
         ev.preventDefault();
         const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.routeStop[data-drag-id]');
-        if(!target||target===card)return;
-        if(target.dataset.bairroKey!==card.dataset.bairroKey)return;
+        if(!target||target===card||target.dataset.bairroKey!==card.dataset.bairroKey)return;
         const rect=target.getBoundingClientRect();
-        const before=ev.clientY < rect.top+rect.height/2;
-        if(before)target.before(card); else target.after(card);
+        if(ev.clientY<rect.top+rect.height/2)target.before(card);else target.after(card);
       },{passive:false});
-
       card.addEventListener('pointerup',finish,{passive:true});
       card.addEventListener('pointercancel',finish,{passive:true});
       card.addEventListener('lostpointercapture',()=>{if(started)finish();},{passive:true});
@@ -238,10 +191,7 @@
   }
   function persistDomOrder(box){
     const current=[];
-    [...box.querySelectorAll('.routeStop[data-drag-id]')].forEach(el=>{
-      const raw=decodeURIComponent(el.dataset.dragId||'');
-      raw.split('||').filter(Boolean).forEach(k=>current.push(k));
-    });
+    [...box.querySelectorAll('.routeStop[data-drag-id]')].forEach(el=>decodeURIComponent(el.dataset.dragId||'').split('||').filter(Boolean).forEach(k=>current.push(k)));
     if(current.length)saveManualOrder(current);
   }
 
