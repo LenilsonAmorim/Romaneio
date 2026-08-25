@@ -265,4 +265,19 @@
     const orderBtn=document.getElementById('routeBairroOrderBtn');
     if(orderBtn)orderBtn.onclick=openBairroOrder;
   });
+  function __bindBairroOrderButton(){
+    const btn=document.getElementById('routeBairroOrderBtn');
+    if(!btn || btn.dataset.bound==='1')return;
+    btn.dataset.bound='1';
+    btn.addEventListener('click',function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(typeof openBairroOrder==='function') openBairroOrder();
+    });
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',__bindBairroOrderButton);
+  }else{
+    __bindBairroOrderButton();
+  }
 })();
