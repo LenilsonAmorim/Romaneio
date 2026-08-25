@@ -1,4 +1,4 @@
-name: Gerar APK Romaneio
+name: Gerar APK Romaneio - Icone Capa Atualizado
 
 on:
   workflow_dispatch:
@@ -17,14 +17,35 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Procurar projeto Android
+        run: |
+          echo "Arquivos do projeto:"
+          find . -maxdepth 4 -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "build.gradle" \)
+
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Encontrar pasta Gradle
+        id: gradle_project
+        run: |
+          ROOT=$(find . -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit | xargs -r dirname)
+
+          if [ -z "$ROOT" ]; then
+            echo "ERRO: Nenhum projeto Gradle encontrado."
+            exit 1
+          fi
+
+          echo "Projeto encontrado em: $ROOT"
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+
       - name: Gerar APK
-        run: gradle assembleDebug
+        run: |
+          cd "${{ steps.gradle_project.outputs.root }}"
+          gradle assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: Romaneio-Icone-Capa-Atualizado
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            **/build/outputs/apk/debug/*.apk
