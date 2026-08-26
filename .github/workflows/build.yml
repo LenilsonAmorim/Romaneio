@@ -2,6 +2,10 @@ name: Gerar APK Romaneio
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'Romaneio_APK_AUTOATUALIZAVEL.zip'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
@@ -22,44 +26,29 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Preparar projeto Android
+      - name: Extrair projeto Android
         run: |
           rm -rf android-project
           mkdir android-project
-          unzip -q Romaneio_APK_WebView_ATUALIZADO.zip -d android-project
+          unzip -q Romaneio_APK_AUTOATUALIZAVEL.zip -d temp
 
-      - name: Verificar projeto
-        run: |
-          echo "Arquivos do projeto:"
+          if [ -f temp/Romaneio_APK_AUTOATUALIZAVEL/settings.gradle ]; then
+            cp -r temp/Romaneio_APK_AUTOATUALIZAVEL/. android-project/
+          else
+            cp -r temp/. android-project/
+          fi
+
+          echo "Projeto encontrado:"
           find android-project -maxdepth 3 -type f | sort
-
-          test -f android-project/build.gradle
-          test -f android-project/settings.gradle
-          test -f android-project/app/build.gradle
 
       - name: Gerar APK
         working-directory: android-project
         run: |
-          gradle assembleDebug --no-daemon --stacktrace
-
-      - name: Localizar APK
-        run: |
-          APK=$(find android-project -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERRO: APK não foi encontrado."
-            exit 1
-          fi
-
-          echo "APK encontrado:"
-          echo "$APK"
-
-          mkdir -p output
-          cp "$APK" output/Romaneio.apk
+          gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio APK
-          path: output/Romaneio.apk
+          name: Romaneio-APK
+          path: android-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
