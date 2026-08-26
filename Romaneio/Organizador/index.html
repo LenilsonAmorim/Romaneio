@@ -28,6 +28,31 @@
 .bottomNav .navItem{font-size:18px!important;line-height:1.2!important}
 .bottomNav .navItem span{font-size:11px!important;line-height:1.2!important;font-weight:700!important;white-space:nowrap!important}
 </style>
+
+<style>
+.bottomNav{
+  display:flex!important;
+  justify-content:flex-start!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  width:100%!important;
+  max-width:none!important;
+  touch-action:pan-x!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:none!important;
+}
+.bottomNav::-webkit-scrollbar{display:none!important}
+.bottomNav .navItem{
+  flex:0 0 33.3333%!important;
+  min-width:33.3333%!important;
+  max-width:33.3333%!important;
+  white-space:nowrap!important;
+}
+.bottomNav .navItem span{
+  font-size:11px!important;
+  font-weight:700!important;
+}
+</style>
 </head>
 <body>
 <header class="appHeader"><div class="brand">ROMANEIO</div><div class="subtitle">Roteirização diária</div></header>
