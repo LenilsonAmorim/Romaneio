@@ -11,7 +11,7 @@ jobs:
       - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Configurar Java
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -20,67 +20,19 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Encontrar projeto Android
+      - name: Preparar projeto Android
         run: |
-          unzip -q "Romaneio/RomaneioApp_autoatualizavel.zip" -d android-project
-
-          echo "Arquivos encontrados:"
-          find android-project -maxdepth 5 -type f | sort
-
-      - name: Configurar endereço do site
-        run: |
-          FILE=$(find android-project -type f -name "MainActivity.java" -print -quit)
-
-          if [ -z "$FILE" ]; then
-            echo "MainActivity.java não encontrado."
-            exit 1
-          fi
-
-          sed -i 's#https://[^"]*#https://lenilsonamorim.github.io/Romaneio/#g' "$FILE"
-
-          echo "Site configurado:"
-          grep -n "loadUrl" "$FILE" || true
-
-      - name: Encontrar projeto Gradle
-        id: project
-        run: |
-          ROOT=$(find android-project \
-            -type f \
-            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            -print -quit | xargs -r dirname)
-
-          if [ -z "$ROOT" ]; then
-            echo "Projeto Gradle não encontrado."
-            exit 1
-          fi
-
-          echo "Projeto: $ROOT"
-          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          mkdir -p android-project
+          unzip -q Romaneio_APK_WebView.zip -d android-project
 
       - name: Gerar APK
         run: |
-          cd "${{ steps.project.outputs.root }}"
+          cd android-project
           gradle assembleDebug --no-daemon
-
-      - name: Localizar APK
-        id: apk
-        run: |
-          APK=$(find android-project \
-            -type f \
-            -path "*/build/outputs/apk/debug/*.apk" \
-            -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "APK não encontrado."
-            exit 1
-          fi
-
-          echo "APK: $APK"
-          echo "path=$APK" >> "$GITHUB_OUTPUT"
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: Romaneio APK
-          path: ${{ steps.apk.outputs.path }}
+          path: android-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
