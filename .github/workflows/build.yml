@@ -5,7 +5,7 @@ on:
 
   push:
     paths:
-      - "romaneio-apk-filepicker-fixed.zip"
+      - "Romaneio.apk.zip"
       - ".github/workflows/build.yml"
 
 jobs:
@@ -33,314 +33,54 @@ jobs:
         run: |
           set -e
 
-          echo "====================================="
-          echo "ARQUIVO DO APK"
-          echo "====================================="
-
-          ls -lh romaneio-apk-filepicker-fixed.zip
-
           rm -rf android-project
-          mkdir -p android-project
 
-          unzip -q romaneio-apk-filepicker-fixed.zip -d android-project
+          mkdir android-project
 
-          echo ""
-          echo "====================================="
-          echo "ARQUIVOS EXTRAÍDOS"
-          echo "====================================="
+          unzip -q "Romaneio.apk.zip" -d android-project
 
-          find android-project -maxdepth 5 -type f | sort
+          echo "Projeto extraído:"
+          find android-project -maxdepth 6 -type f | sort
 
-      - name: Localizar projeto Gradle
+      - name: Corrigir MainActivity
         shell: bash
         run: |
           set -e
 
-          SETTINGS=$(find android-project -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 || true)
+          MAIN="android-project/app/src/main/java/com/lenilson/romaneio/MainActivity.java"
 
-          if [ -z "$SETTINGS" ]; then
-            echo "Nenhum settings.gradle encontrado."
-            echo "Criando projeto Gradle automaticamente."
-
-            if [ -d "android-project/app" ]; then
-              cd android-project
-
-              cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.name = "Romaneio"
-
-          include ":app"
-          EOF
-
-              cat > build.gradle <<'EOF'
-          plugins {
-              id "com.android.application" version "8.7.3" apply false
-          }
-          EOF
-
-              cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          EOF
-
-              cd ..
-            fi
-
-          else
-            ROOT=$(dirname "$SETTINGS")
-            echo "Projeto Gradle encontrado em:"
-            echo "$ROOT"
-          fi
-
-      - name: Corrigir seletor de arquivos Android
-        shell: bash
-        run: |
-          set -e
-
-          MAIN=$(find android-project -type f -name "MainActivity.java" | head -n 1)
-
-          if [ -z "$MAIN" ]; then
-            echo "ERRO: MainActivity.java não encontrado."
+          if [ ! -f "$MAIN" ]; then
+            echo "ERRO: MainActivity.java não encontrada."
             exit 1
           fi
 
-          echo "MainActivity encontrada:"
-          echo "$MAIN"
+          # Corrige os caracteres \n que foram gravados
+          # literalmente no arquivo Java.
+          sed -i 's/\\n/\
+/g' "$MAIN"
 
-          PACKAGE=$(grep '^package ' "$MAIN" | sed 's/package //' | sed 's/;//')
+          echo "MainActivity corrigida."
 
-          if [ -z "$PACKAGE" ]; then
-            echo "ERRO: pacote da MainActivity não encontrado."
-            exit 1
-          fi
-
-          echo "Pacote:"
-          echo "$PACKAGE"
-
-          cat > "$MAIN" <<EOF
-          package $PACKAGE;
-
-          import android.app.Activity;
-          import android.content.ActivityNotFoundException;
-          import android.content.Intent;
-          import android.net.Uri;
-          import android.os.Bundle;
-          import android.webkit.ValueCallback;
-          import android.webkit.WebChromeClient;
-          import android.webkit.WebSettings;
-          import android.webkit.WebView;
-          import android.webkit.WebViewClient;
-
-          public class MainActivity extends Activity {
-
-              private WebView webView;
-
-              private ValueCallback<Uri[]> filePathCallback;
-
-              private static final int FILE_CHOOSER_REQUEST_CODE = 1001;
-
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-
-                  webView = new WebView(this);
-
-                  setContentView(webView);
-
-                  WebSettings settings = webView.getSettings();
-
-                  settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true);
-
-                  settings.setAllowFileAccess(true);
-                  settings.setAllowContentAccess(true);
-
-                  settings.setDatabaseEnabled(true);
-
-                  settings.setBuiltInZoomControls(false);
-                  settings.setDisplayZoomControls(false);
-
-                  settings.setLoadWithOverviewMode(false);
-                  settings.setUseWideViewPort(false);
-
-                  webView.setWebViewClient(new WebViewClient());
-
-                  webView.setWebChromeClient(new WebChromeClient() {
-
-                      @Override
-                      public boolean onShowFileChooser(
-                              WebView webView,
-                              ValueCallback<Uri[]> filePathCallback,
-                              FileChooserParams fileChooserParams) {
-
-                          if (MainActivity.this.filePathCallback != null) {
-                              MainActivity.this.filePathCallback.onReceiveValue(null);
-                          }
-
-                          MainActivity.this.filePathCallback = filePathCallback;
-
-                          Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-
-                          intent.addCategory(Intent.CATEGORY_OPENABLE);
-
-                          intent.setType("*/*");
-
-                          intent.putExtra(
-                                  Intent.EXTRA_MIME_TYPES,
-                                  new String[] {
-                                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                          "application/vnd.ms-excel",
-                                          "text/csv",
-                                          "application/csv",
-                                          "*/*"
-                                  }
-                          );
-
-                          intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false);
-
-                          try {
-                              startActivityForResult(
-                                      intent,
-                                      FILE_CHOOSER_REQUEST_CODE
-                              );
-
-                          } catch (ActivityNotFoundException e) {
-
-                              MainActivity.this.filePathCallback = null;
-
-                              return false;
-                          }
-
-                          return true;
-                      }
-                  });
-
-                  webView.loadUrl("file:///android_asset/index.html");
-              }
-
-              @Override
-              protected void onActivityResult(
-                      int requestCode,
-                      int resultCode,
-                      Intent data) {
-
-                  if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-
-                      Uri[] results = null;
-
-                      if (resultCode == RESULT_OK && data != null) {
-
-                          if (data.getData() != null) {
-
-                              results = new Uri[] {
-                                      data.getData()
-                              };
-
-                          } else if (data.getClipData() != null) {
-
-                              int count = data.getClipData().getItemCount();
-
-                              if (count > 0) {
-
-                                  results = new Uri[] {
-                                          data.getClipData()
-                                                  .getItemAt(0)
-                                                  .getUri()
-                                  };
-                              }
-                          }
-                      }
-
-                      if (filePathCallback != null) {
-
-                          filePathCallback.onReceiveValue(results);
-
-                          filePathCallback = null;
-                      }
-                  }
-
-                  super.onActivityResult(
-                          requestCode,
-                          resultCode,
-                          data
-                  );
-              }
-
-              @Override
-              public void onBackPressed() {
-
-                  if (webView != null && webView.canGoBack()) {
-
-                      webView.goBack();
-
-                  } else {
-
-                      super.onBackPressed();
-                  }
-              }
-          }
-          EOF
-
-          echo "====================================="
-          echo "SELETOR DE ARQUIVOS CONFIGURADO"
-          echo "====================================="
+          grep -n "SITE_URL\|loadUrl\|CacheMode" "$MAIN" || true
 
       - name: Verificar projeto
         shell: bash
         run: |
           set -e
 
-          echo "====================================="
-          echo "PROJETOS GRADLE"
-          echo "====================================="
+          test -f android-project/settings.gradle
+          test -f android-project/build.gradle
+          test -f android-project/app/build.gradle
+          test -f android-project/app/src/main/AndroidManifest.xml
 
-          find android-project \
-            -type f \
-            \( -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \) \
-            -print
+          echo "Estrutura Android OK."
 
       - name: Gerar APK
         shell: bash
         run: |
           set -e
 
-          SETTINGS=$(find android-project \
-            -type f \
-            \( -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \) \
-            | head -n 1)
-
-          if [ -z "$SETTINGS" ]; then
-            echo "ERRO: projeto Gradle não encontrado."
-            exit 1
-          fi
-
-          ROOT=$(dirname "$SETTINGS")
-
-          echo "====================================="
-          echo "GERANDO APK"
-          echo "====================================="
-
-          cd "$ROOT"
+          cd android-project
 
           gradle :app:assembleDebug \
             --no-daemon \
@@ -351,17 +91,13 @@ jobs:
         run: |
           set -e
 
-          echo "====================================="
-          echo "PROCURANDO APK"
-          echo "====================================="
-
-          APK=$(find android-project \
+          APK=$(find android-project/app/build/outputs/apk \
             -type f \
-            -path "*/build/outputs/apk/*.apk" \
+            -name "*.apk" \
             | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "ERRO: nenhum APK foi gerado."
+            echo "ERRO: APK não foi encontrado."
             exit 1
           fi
 
@@ -370,18 +106,14 @@ jobs:
 
           mkdir -p final
 
-          cp "$APK" final/Romaneio.apk
+          cp "$APK" "final/Romaneio.apk"
 
-          echo ""
-          echo "====================================="
-          echo "APK FINAL"
-          echo "====================================="
-
-          ls -lh final/Romaneio.apk
+          echo "APK final:"
+          ls -lh "final/Romaneio.apk"
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio-APK
+          name: Romaneio.apk
           path: final/Romaneio.apk
           if-no-files-found: error
