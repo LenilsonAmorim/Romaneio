@@ -68,7 +68,7 @@ function load(file){
    const h=raw[0].map(cleanHeader);
    if(h.includes('sequence') && (h.includes('enderecos')||h.includes('enderecos'))){start=1}
    rows=raw.slice(start).map(r=>({sequence:text(r[0]),address:text(r[1])})).filter(r=>r.sequence||r.address);
-   done=rows.map(()=>false);
+   done=rows.map(()=>false);saveState();
    $('status').textContent=file.name+' • '+rows.length+' endereços carregados.';
    $('summary').hidden=false;$('listCard').hidden=false;render();
   }catch(err){console.error(err);$('status').textContent='Não foi possível ler a planilha.'}
@@ -78,7 +78,28 @@ function load(file){
 function move(from,to){
  if(from===to||from<0||to<0||to>=rows.length)return;
  const r=rows.splice(from,1)[0],d=done.splice(from,1)[0];
- rows.splice(to,0,r);done.splice(to,0,d);render();
+ rows.splice(to,0,r);done.splice(to,0,d);saveState();render();
+}
+
+function saveState(){
+ try{
+  localStorage.setItem('romaneio_planilha_pronta_rows',JSON.stringify(rows));
+  localStorage.setItem('romaneio_planilha_pronta_done',JSON.stringify(done));
+ }catch(e){console.warn('Não foi possível salvar a rota:',e)}
+}
+function loadState(){
+ try{
+  const saved=localStorage.getItem('romaneio_planilha_pronta_rows');
+  if(!saved)return false;
+  const parsed=JSON.parse(saved);
+  if(!Array.isArray(parsed)||!parsed.length)return false;
+  rows=parsed.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
+  const d=JSON.parse(localStorage.getItem('romaneio_planilha_pronta_done')||'[]');
+  done=rows.map((_,i)=>Boolean(d[i]));
+  $('status').textContent='Planilha salva • '+rows.length+' endereços recuperados automaticamente.';
+  $('summary').hidden=false;$('listCard').hidden=false;render();
+  return true;
+ }catch(e){console.warn('Não foi possível recuperar a rota:',e);return false}
 }
 function render(){
  const total=rows.length,fin=done.filter(Boolean).length;
@@ -90,8 +111,8 @@ function render(){
   el.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="seq"></div><div class="addr"></div></div><div class="rowActions"><button class="secondary back">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
   el.querySelector('.seq').textContent=r.sequence||String(i+1);
   el.querySelector('.addr').textContent=r.address||'Endereço não informado';
-  el.querySelector('.ok').onclick=()=>{done[i]=true;render()};
-  el.querySelector('.back').onclick=()=>{done[i]=false;render()};
+  el.querySelector('.ok').onclick=()=>{done[i]=true;saveState();render()};
+  el.querySelector('.back').onclick=()=>{done[i]=false;saveState();render()};
   const h=el.querySelector('.handle');
   h.onpointerdown=e=>{
    e.preventDefault();dragFrom=i;
@@ -117,8 +138,8 @@ function render(){
  });
 }
 $('file').addEventListener('change',e=>{if(e.target.files[0])load(e.target.files[0])});
-$('undoAll').onclick=()=>{done=rows.map(()=>false);render()};
-$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);render()}};
+$('undoAll').onclick=()=>{done=rows.map(()=>false);saveState();render()};
+$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);saveState();render()}};
 })();
 </script>
 </body>
