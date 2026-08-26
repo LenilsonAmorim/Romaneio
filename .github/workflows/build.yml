@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'Romaneio_APK_AUTOATUALIZAVEL.zip'
-      - '.github/workflows/build.yml'
+      - "Romaneio_APK_AUTOATUALIZAVEL.zip"
+      - ".github/workflows/build.yml"
 
 jobs:
   build:
@@ -19,36 +19,101 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.13'
+          gradle-version: "8.13"
 
       - name: Extrair projeto Android
+        shell: bash
         run: |
-          rm -rf android-project
-          mkdir android-project
+          set -e
+
+          rm -rf android-project temp
+          mkdir -p android-project temp
+
           unzip -q Romaneio_APK_AUTOATUALIZAVEL.zip -d temp
 
-          if [ -f temp/Romaneio_APK_AUTOATUALIZAVEL/settings.gradle ]; then
-            cp -r temp/Romaneio_APK_AUTOATUALIZAVEL/. android-project/
+          echo "=== Conteúdo do ZIP ==="
+          find temp -maxdepth 5 -type f | sort
+
+          PROJECT_DIR=""
+
+          if [ -f "temp/settings.gradle" ] || [ -f "temp/settings.gradle.kts" ]; then
+            PROJECT_DIR="temp"
+
+          elif [ -f "temp/android-project/settings.gradle" ] || [ -f "temp/android-project/settings.gradle.kts" ]; then
+            PROJECT_DIR="temp/android-project"
+
           else
-            cp -r temp/. android-project/
+            PROJECT_DIR=$(find temp -type f \( \
+              -name "settings.gradle" -o \
+              -name "settings.gradle.kts" \
+            \) -print -quit | xargs -r dirname)
           fi
 
-          echo "Projeto encontrado:"
-          find android-project -maxdepth 3 -type f | sort
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERRO: nenhum projeto Gradle encontrado no ZIP."
+            exit 1
+          fi
+
+          echo "Projeto Gradle encontrado em: $PROJECT_DIR"
+
+          cp -a "$PROJECT_DIR"/. android-project/
+
+          echo "=== Projeto Android final ==="
+          find android-project -maxdepth 4 -type f | sort
+
+          if [ ! -f android-project/settings.gradle ] && \
+             [ ! -f android-project/settings.gradle.kts ]; then
+            echo "ERRO: settings.gradle não foi encontrado."
+            exit 1
+          fi
+
+          if [ ! -d android-project/app ]; then
+            echo "ERRO: pasta app não encontrada."
+            exit 1
+          fi
 
       - name: Gerar APK
         working-directory: android-project
+        shell: bash
         run: |
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          set -e
+
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Localizar APK
+        shell: bash
+        run: |
+          set -e
+
+          echo "=== APKs encontrados ==="
+          find android-project -type f -name "*.apk" -print
+
+          APK=$(find android-project/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERRO: APK não foi gerado."
+            exit 1
+          fi
+
+          mkdir -p final
+          cp "$APK" final/Romaneio.apk
+
+          echo "APK final:"
+          ls -lh final/Romaneio.apk
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio-APK
-          path: android-project/app/build/outputs/apk/debug/app-debug.apk
+          name: Romaneio-APK-CORRETO
+          path: final/Romaneio.apk
           if-no-files-found: error
