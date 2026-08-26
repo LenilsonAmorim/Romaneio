@@ -5,7 +5,7 @@ on:
 
   push:
     paths:
-      - "Romaneio.apk.zip"
+      - "romaneio-apk-filepicker-fixed.zip"
       - ".github/workflows/build.yml"
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
 
           mkdir android-project
 
-          unzip -q "Romaneio.apk.zip" -d android-project
+          unzip -q "romaneio-apk-filepicker-fixed.zip" -d android-project
 
           echo "Projeto extraído:"
           find android-project -maxdepth 6 -type f | sort
@@ -51,16 +51,19 @@ jobs:
 
           if [ ! -f "$MAIN" ]; then
             echo "ERRO: MainActivity.java não encontrada."
+            echo "Arquivos encontrados:"
+            find android-project -type f | sort
             exit 1
           fi
 
-          # Corrige os caracteres \n que foram gravados
-          # literalmente no arquivo Java.
+          # Corrige caracteres \n gravados literalmente
+          # no arquivo Java.
           sed -i 's/\\n/\
 /g' "$MAIN"
 
           echo "MainActivity corrigida."
 
+          echo "Verificando configurações:"
           grep -n "SITE_URL\|loadUrl\|CacheMode" "$MAIN" || true
 
       - name: Verificar projeto
