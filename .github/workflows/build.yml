@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "Romaneio_APK_AUTOATUALIZAVEL.zip"
+      - "Romaneio/Organizador/**"
       - ".github/workflows/build.yml"
 
 jobs:
@@ -26,56 +26,203 @@ jobs:
         with:
           gradle-version: "8.13"
 
-      - name: Extrair projeto Android
+      - name: Criar projeto Android com o site atual
         shell: bash
         run: |
           set -e
 
-          rm -rf android-project temp
-          mkdir -p android-project temp
+          rm -rf android-project
 
-          unzip -q Romaneio_APK_AUTOATUALIZAVEL.zip -d temp
+          mkdir -p android-project/app/src/main/java/com/romaneio/app
+          mkdir -p android-project/app/src/main/res/drawable
+          mkdir -p android-project/app/src/main/res/values
+          mkdir -p android-project/app/src/main/assets
 
-          echo "=== Conteúdo do ZIP ==="
-          find temp -maxdepth 5 -type f | sort
+          # COPIA O SITE ATUAL PARA DENTRO DO APK
+          cp -a Romaneio/Organizador/. android-project/app/src/main/assets/
 
-          PROJECT_DIR=""
+          cat > android-project/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-          if [ -f "temp/settings.gradle" ] || [ -f "temp/settings.gradle.kts" ]; then
-            PROJECT_DIR="temp"
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-          elif [ -f "temp/android-project/settings.gradle" ] || [ -f "temp/android-project/settings.gradle.kts" ]; then
-            PROJECT_DIR="temp/android-project"
+          rootProject.name = 'Romaneio'
+          include ':app'
+          EOF
 
-          else
-            PROJECT_DIR=$(find temp -type f \( \
-              -name "settings.gradle" -o \
-              -name "settings.gradle.kts" \
-            \) -print -quit | xargs -r dirname)
-          fi
+          cat > android-project/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERRO: nenhum projeto Gradle encontrado no ZIP."
-            exit 1
-          fi
+          cat > android-project/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          EOF
 
-          echo "Projeto Gradle encontrado em: $PROJECT_DIR"
+          cat > android-project/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
 
-          cp -a "$PROJECT_DIR"/. android-project/
+          android {
+              namespace 'com.romaneio.app'
+              compileSdk 35
 
-          echo "=== Projeto Android final ==="
-          find android-project -maxdepth 4 -type f | sort
+              defaultConfig {
+                  applicationId 'com.romaneio.app'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
 
-          if [ ! -f android-project/settings.gradle ] && \
-             [ ! -f android-project/settings.gradle.kts ]; then
-            echo "ERRO: settings.gradle não foi encontrado."
-            exit 1
-          fi
+          cat > android-project/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
 
-          if [ ! -d android-project/app ]; then
-            echo "ERRO: pasta app não encontrada."
-            exit 1
-          fi
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+
+              <application
+                  android:allowBackup="false"
+                  android:hardwareAccelerated="true"
+                  android:icon="@drawable/ic_launcher"
+                  android:label="Romaneio"
+                  android:usesCleartextTraffic="true"
+                  android:theme="@style/AppTheme">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > android-project/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+
+          <resources>
+
+              <style
+                  name="AppTheme"
+                  parent="android:style/Theme.Material.Light.NoActionBar">
+
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:colorAccent">#111827</item>
+                  <item name="android:statusBarColor">#111827</item>
+                  <item name="android:navigationBarColor">#111827</item>
+                  <item name="android:windowLightStatusBar">false</item>
+
+              </style>
+
+          </resources>
+          EOF
+
+          # ÍCONE R DO ROMANEIO
+          cat > android-project/app/src/main/res/drawable/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+
+          <vector
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+
+              <path
+                  android:fillColor="#111827"
+                  android:pathData="M8,8 L100,8 L100,100 L8,100 Z" />
+
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M31,27 L57,27 C71,27 78,34 78,45 C78,53 74,59 67,62 L81,81 L67,81 L55,65 L44,65 L44,81 L31,81 Z M44,38 L44,54 L55,54 C62,54 65,51 65,46 C65,41 62,38 55,38 Z" />
+
+          </vector>
+          EOF
+
+          cat > android-project/app/src/main/java/com/romaneio/app/MainActivity.java <<'EOF'
+          package com.romaneio.app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  WebSettings settings = webView.getSettings();
+
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setAllowFileAccess(true);
+                  settings.setAllowContentAccess(true);
+                  settings.setDatabaseEnabled(true);
+                  settings.setBuiltInZoomControls(false);
+                  settings.setDisplayZoomControls(false);
+                  settings.setLoadWithOverviewMode(false);
+                  settings.setUseWideViewPort(false);
+
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient());
+
+                  // ABRE EXATAMENTE O SITE ATUAL
+                  webView.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onBackPressed() {
+
+                  if (webView != null && webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+
+              }
+          }
+          EOF
+
+          echo "====================================="
+          echo "SITE COPIADO PARA O APK:"
+          echo "====================================="
+
+          find android-project/app/src/main/assets -maxdepth 2 -type f | sort
 
       - name: Gerar APK
         working-directory: android-project
@@ -83,12 +230,9 @@ jobs:
         run: |
           set -e
 
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew :app:assembleDebug --no-daemon --stacktrace
-          else
-            gradle :app:assembleDebug --no-daemon --stacktrace
-          fi
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
 
       - name: Localizar APK
         shell: bash
@@ -96,9 +240,16 @@ jobs:
           set -e
 
           echo "=== APKs encontrados ==="
-          find android-project -type f -name "*.apk" -print
 
-          APK=$(find android-project/app/build/outputs/apk -type f -name "*.apk" | head -n 1)
+          find android-project/app/build/outputs/apk \
+            -type f \
+            -name "*.apk" \
+            -print
+
+          APK=$(find android-project/app/build/outputs/apk \
+            -type f \
+            -name "*.apk" \
+            | head -n 1)
 
           if [ -z "$APK" ]; then
             echo "ERRO: APK não foi gerado."
@@ -106,9 +257,14 @@ jobs:
           fi
 
           mkdir -p final
+
           cp "$APK" final/Romaneio.apk
 
-          echo "APK final:"
+          echo "====================================="
+          echo "APK FINAL:"
+          echo "final/Romaneio.apk"
+          echo "====================================="
+
           ls -lh final/Romaneio.apk
 
       - name: Disponibilizar APK
