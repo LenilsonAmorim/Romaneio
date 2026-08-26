@@ -1,131 +1,42 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Romaneio • Planilha pronta</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}
-header{background:#111827;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
-header b{font-size:22px}header small{display:block;opacity:.78;margin-top:4px}
+header{background:#111827;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}header b{font-size:22px}header small{display:block;opacity:.78;margin-top:4px}
 main{max-width:760px;margin:auto;padding:14px 12px 90px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
-h1,h2{margin-top:0}.muted{color:#66717d}.fileBox{border:2px dashed #c9d0d7;border-radius:14px;padding:18px;text-align:center}
 input[type=file]{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;background:#fff}
-button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:700;min-height:44px}
-.primary{background:#111827;color:#fff}.secondary{background:#e9edf1;color:#17202a}.danger{background:#b42318;color:#fff}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{flex:1;min-width:130px}
-.status{font-size:14px;color:#5e6873;margin-top:10px}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f3f5f7;border-radius:12px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.stat span{font-size:12px;color:#66717d}
+button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:700;min-height:44px;touch-action:manipulation}
+.primary{background:#111827;color:#fff}.secondary{background:#e9edf1;color:#17202a}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{flex:1;min-width:130px}
+.status,.hint{font-size:14px;color:#66717d;margin-top:10px}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f3f5f7;border-radius:12px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.stat span{font-size:12px;color:#66717d}
 .progress{height:9px;background:#e5e9ed;border-radius:20px;overflow:hidden;margin-top:12px}.bar{height:100%;background:#111827;width:0}
 .group{margin-top:16px}.groupTitle{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #e4e7ea}.groupTitle b{font-size:17px}.groupTitle span{font-size:13px;color:#69737d}
-.item{padding:13px 0;border-bottom:1px solid #e7eaed}.item:last-child{border-bottom:0}.item.done{opacity:.48}
-.itemTop{display:flex;gap:10px}.num{width:38px;height:38px;min-width:38px;border-radius:10px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:800}
-.info{min-width:0;flex:1}.address{font-size:17px;font-weight:800;word-break:break-word}.meta{font-size:14px;color:#69737d;margin-top:5px}
-.itemActions{display:flex;gap:7px;margin-top:9px}.itemActions button{flex:1}
-.empty{text-align:center;padding:25px 8px;color:#66717d}
-</style>
-</head>
-<body>
-<header><b>ROMANEIO</b><small>Planilha pronta • somente visualizar e finalizar</small></header>
-<main>
-<section class="card">
-<h2>📋 Planilha pronta</h2>
-<p class="muted">Escolha uma planilha que já está organizada. Aqui ela será apenas exibida na ordem em que está, sem configurar bairros ou quadras.</p>
-<div class="fileBox">
-<input id="file" type="file" accept=".xlsx,.xls,.csv">
-<div id="status" class="status">Escolha sua planilha para começar.</div>
-</div>
-</section>
-
-<section id="summaryCard" class="card" hidden>
-<div class="summary">
-<div class="stat"><b id="total">0</b><span>Total</span></div>
-<div class="stat"><b id="remaining">0</b><span>Restantes</span></div>
-<div class="stat"><b id="finished">0</b><span>Entregues</span></div>
-</div>
-<div class="progress"><div id="bar" class="bar"></div></div>
-<div class="actions">
-<button id="undoAll" class="secondary">↩ Desfazer tudo</button>
-<button id="finishAll" class="primary">✓ Finalizar rota</button>
-</div>
-</section>
-
-<section id="listCard" class="card" hidden>
-<div id="list"></div>
-</section>
-</main>
-
+.item{padding:12px 0;border-bottom:1px solid #e7eaed;user-select:none;-webkit-user-select:none;touch-action:pan-y}.item.done{opacity:.48}.item.dragging{opacity:.35}.item.dragOver{border-top:3px solid #111827}
+.itemTop{display:flex;gap:10px;align-items:flex-start}.dragHandle{width:42px;min-width:42px;height:42px;border-radius:10px;background:#eef1f4;display:grid;place-items:center;font-size:21px;cursor:grab;touch-action:none}.dragHandle:active{cursor:grabbing}
+.info{min-width:0;flex:1}.address{font-size:17px;font-weight:800;word-break:break-word}.meta{font-size:14px;color:#69737d;margin-top:5px}.itemActions{display:flex;gap:7px;margin-top:9px;padding-left:52px}.itemActions button{flex:1}
+</style></head><body>
+<header><b>ROMANEIO</b><small>Planilha pronta • mover e finalizar</small></header><main>
+<section class="card"><h2>📋 Planilha pronta</h2><p>Escolha uma planilha já organizada. A ordem pode ser alterada manualmente sem configurar bairros ou quadras.</p>
+<input id="file" type="file" accept=".xlsx,.xls,.csv"><div id="status" class="status">Escolha sua planilha para começar.</div>
+<div class="hint">☝️ Pressione e segure ⋮⋮ e arraste a entrega para outro lugar.</div></section>
+<section id="summaryCard" class="card" hidden><div class="summary"><div class="stat"><b id="total">0</b><span>Total</span></div><div class="stat"><b id="remaining">0</b><span>Restantes</span></div><div class="stat"><b id="finished">0</b><span>Entregues</span></div></div><div class="progress"><div id="bar" class="bar"></div></div>
+<div class="actions"><button id="undoAll" class="secondary">↩ Desfazer tudo</button><button id="finishAll" class="primary">✓ Finalizar rota</button></div></section>
+<section id="listCard" class="card" hidden><div id="list"></div></section></main>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
-(()=> {
-let rows=[], done=[];
-const $=id=>document.getElementById(id);
-const text=(v)=>String(v??'').trim();
-function get(row,names){
- for(const n of names){if(row[n]!==undefined && text(row[n]))return text(row[n])}
- return '';
-}
-function esc(s){return text(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-
-function read(file){
- const fr=new FileReader();
- fr.onload=e=>{
-  try{
-   const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-   const ws=wb.Sheets[wb.SheetNames[0]];
-   rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-   done=rows.map(()=>false);
-   if(!rows.length){$('status').textContent='A planilha está vazia.';return}
-   $('status').textContent=file.name+' • '+rows.length+' registros carregados.';
-   $('summaryCard').hidden=false;$('listCard').hidden=false;render();
-  }catch(err){console.error(err);$('status').textContent='Não foi possível ler esta planilha.'}
- };
- fr.readAsArrayBuffer(file);
-}
-
-function finish(i){done[i]=true;render()}
-function undo(i){done[i]=false;render()}
-
-function render(){
- const total=rows.length, fin=done.filter(Boolean).length;
- $('total').textContent=total;$('finished').textContent=fin;$('remaining').textContent=total-fin;
- $('bar').style.width=(total?fin/total*100:0)+'%';
-
- // A planilha já está pronta: a ordem original nunca é alterada.
- const groups=[];
- const map=new Map();
- rows.forEach((row,i)=>{
-  const bairro=get(row,['Bairro','BAIRRO'])||'Bairro não informado';
-  const key=bairro.toLowerCase();
-  if(!map.has(key)){const g={bairro,items:[]};map.set(key,g);groups.push(g)}
-  map.get(key).items.push({row,i});
- });
-
- const box=$('list');box.innerHTML='';
- groups.forEach(g=>{
-  const section=document.createElement('div');section.className='group';
-  const title=document.createElement('div');title.className='groupTitle';
-  title.innerHTML='<b>'+esc(g.bairro)+'</b><span>'+g.items.length+(g.items.length===1?' entrega':' entregas')+'</span>';
-  section.appendChild(title);
-
-  g.items.forEach(({row,i})=>{
-   const address=get(row,['Endereço','Endereco','ENDEREÇO','ENDERECO','Rua','Logradouro'])||'Endereço não informado';
-   const quadra=get(row,['Quadra','QUADRA','Sequência','Sequencia']);
-   const numero=get(row,['Número','Numero','Nº','NO'])||String(i+1);
-   const item=document.createElement('div');item.className='item'+(done[i]?' done':'');
-   item.innerHTML='<div class="itemTop"><div class="num">'+esc(numero)+'</div><div class="info"><div class="address">'+esc(address)+'</div><div class="meta">'+[esc(g.bairro),esc(quadra)].filter(Boolean).join(' • ')+'</div></div></div><div class="itemActions"><button class="secondary undo">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
-   item.querySelector('.ok').onclick=()=>finish(i);
-   item.querySelector('.undo').onclick=()=>undo(i);
-   section.appendChild(item);
-  });
-  box.appendChild(section);
- });
-}
-
-$('file').addEventListener('change',e=>{if(e.target.files[0])read(e.target.files[0])});
-$('undoAll').addEventListener('click',()=>{done=rows.map(()=>false);render()});
-$('finishAll').addEventListener('click',()=>{if(confirm('Finalizar todas as entregas desta rota?')){done=rows.map(()=>true);render()}});
-})();
-</script>
-</body>
-</html>
+(()=>{let rows=[],done=[],dragIndex=null,hold=null,dragging=false;
+const $=x=>document.getElementById(x),t=v=>String(v??'').trim();
+function get(r,n){for(const k of n)if(r[k]!==undefined&&t(r[k]))return t(r[k]);return''}
+function esc(s){return t(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function read(file){const fr=new FileReader();fr.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];rows=XLSX.utils.sheet_to_json(ws,{defval:''});done=rows.map(()=>false);if(!rows.length){$('status').textContent='A planilha está vazia.';return}$('status').textContent=file.name+' • '+rows.length+' registros carregados.';$('summaryCard').hidden=false;$('listCard').hidden=false;render()}catch(e){console.error(e);$('status').textContent='Não foi possível ler esta planilha.'}};fr.readAsArrayBuffer(file)}
+function move(a,b){if(a===b||b<0||b>=rows.length)return;const r=rows.splice(a,1)[0],d=done.splice(a,1)[0];rows.splice(b,0,r);done.splice(b,0,d);render()}
+function start(i,h,e){if(e.pointerType==='mouse'&&e.button!==0)return;e.preventDefault();h.setPointerCapture?.(e.pointerId);hold=setTimeout(()=>{dragging=true;h.closest('.item')?.classList.add('dragging')},400)}
+function movePointer(e){if(!dragging)return;document.querySelectorAll('.dragOver').forEach(x=>x.classList.remove('dragOver'));const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.item');if(el)el.classList.add('dragOver')}
+function end(e,i){clearTimeout(hold);if(!dragging){dragging=false;return}const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.item');const to=el?Number(el.dataset.index):i;dragging=false;if(el&&to!==i)move(i,to);else render()}
+function render(){const total=rows.length,fin=done.filter(Boolean).length;$('total').textContent=total;$('finished').textContent=fin;$('remaining').textContent=total-fin;$('bar').style.width=(total?fin/total*100:0)+'%';const box=$('list');box.innerHTML='';let group=null,groupName='';rows.forEach((r,i)=>{const bairro=get(r,['Bairro','BAIRRO'])||'Bairro não informado';if(bairro!==groupName){groupName=bairro;group=document.createElement('div');group.className='group';group.innerHTML='<div class="groupTitle"><b>'+esc(bairro)+'</b><span></span></div>';box.appendChild(group)}
+const address=get(r,['Endereço','Endereco','ENDEREÇO','ENDERECO','Rua','Logradouro'])||'Endereço não informado',quadra=get(r,['Quadra','QUADRA','Sequência','Sequencia']),num=get(r,['Número','Numero','Nº','NO'])||String(i+1),item=document.createElement('div');item.className='item'+(done[i]?' done':'');item.dataset.index=i;
+item.innerHTML='<div class="itemTop"><div class="dragHandle" title="Pressione e segure para mover">⋮⋮</div><div class="info"><div class="address">'+esc(address)+'</div><div class="meta">'+[esc(bairro),esc(quadra)].filter(Boolean).join(' • ')+'</div></div></div><div class="itemActions"><button class="secondary undo">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
+item.querySelector('.ok').onclick=()=>{done[i]=true;render()};item.querySelector('.undo').onclick=()=>{done[i]=false;render()};const h=item.querySelector('.dragHandle');h.addEventListener('pointerdown',e=>start(i,h,e));h.addEventListener('pointermove',movePointer);h.addEventListener('pointerup',e=>end(e,i));h.addEventListener('pointercancel',()=>{clearTimeout(hold);dragging=false;render()});group.appendChild(item)})}
+$('file').addEventListener('change',e=>{if(e.target.files[0])read(e.target.files[0])});$('undoAll').onclick=()=>{done=rows.map(()=>false);render()};$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);render()}};
+})()
+</script></body></html>
