@@ -1,8 +1,8 @@
-// Preencha com os dados do seu projeto Supabase.
-// Use a URL e a chave ANON/PUBLIC. Nunca coloque a service_role key no APK/site.
+// Configuração pública do Supabase para o Romaneio.
+// NÃO coloque a service_role/secret key aqui.
 window.ROMANEIO_SUPABASE = {
-  url: '',
-  anonKey: '',
+  url: 'https://kfjalmwlbgayyogiaanx.supabase.co',
+  anonKey: 'sb_publishable_GXokf74ebXiWSQpv6iuWrg_DfY0cPfH',
   table: 'romaneio_rotas',
   rotaId: 'rota-do-dia-26-08'
 };

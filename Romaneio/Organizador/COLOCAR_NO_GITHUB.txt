@@ -1,0 +1,6 @@
+Coloque na mesma pasta do Organizador:
+- planilha-pronta.html
+- supabase-config.js
+
+O SQL necessário está em supabase-rotas.sql.
+Rota configurada: rota-do-dia-26-08.
