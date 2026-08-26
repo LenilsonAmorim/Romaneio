@@ -17,49 +17,49 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
       - name: Preparar projeto Android
         run: |
-          mkdir -p android-project
+          rm -rf android-project
+          mkdir android-project
           unzip -q Romaneio_APK_WebView_ATUALIZADO.zip -d android-project
 
-      - name: Encontrar projeto Gradle
+      - name: Verificar projeto
         run: |
-          GRADLEW=$(find android-project -type f -name "gradlew" | head -n 1)
+          echo "Arquivos do projeto:"
+          find android-project -maxdepth 3 -type f | sort
 
-          if [ -z "$GRADLEW" ]; then
-            echo "ERRO: nenhum projeto Gradle encontrado no ZIP."
-            echo "Conteúdo encontrado:"
-            find android-project -maxdepth 4 -type f | head -100
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$GRADLEW")
-          echo "Projeto encontrado em: $PROJECT_DIR"
-
-          chmod +x "$GRADLEW"
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          test -f android-project/build.gradle
+          test -f android-project/settings.gradle
+          test -f android-project/app/build.gradle
 
       - name: Gerar APK
+        working-directory: android-project
         run: |
-          cd "$PROJECT_DIR"
-          ./gradlew assembleDebug --no-daemon
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Localizar APK
         run: |
-          APK=$(find "$PROJECT_DIR" -type f -name "*.apk" | head -n 1)
+          APK=$(find android-project -type f -name "*.apk" | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "ERRO: APK não foi gerado."
+            echo "ERRO: APK não foi encontrado."
             exit 1
           fi
 
-          echo "APK encontrado: $APK"
-          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+          echo "APK encontrado:"
+          echo "$APK"
+
+          mkdir -p output
+          cp "$APK" output/Romaneio.apk
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: Romaneio APK
-          path: ${{ env.APK_PATH }}
+          path: output/Romaneio.apk
           if-no-files-found: error
