@@ -1,0 +1,7 @@
+Adicione este botão dentro do <nav class="bottomNav"> existente:
+<button id="navPlanilhaPronta" class="navItem" type="button">📋<span>Planilha pronta</span></button>
+
+E no script de navegação:
+document.getElementById("navPlanilhaPronta").onclick=()=>{window.location.href="planilha-pronta.html";};
+
+Não substitua o index.html inteiro: use somente o botão e a linha acima para preservar as funções atuais.
