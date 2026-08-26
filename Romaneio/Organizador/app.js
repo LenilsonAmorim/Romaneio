@@ -4,144 +4,113 @@ const ROUTE_RULES_KEY="romaneio_route_rules_v2";
 const ADDRESS_FIXES_KEY="romaneio_address_fixes_v1";
 
 const SUPABASE_TABLE="romaneio_regras";
-const SUPABASE_ROUTE_ID =
-  window.ROMANEIO_ROUTE_ID ||
-  window.ROTA_ID ||
-  window.rotaId ||
-  "romaneio";
 
 function getSupabaseClient(){
   try{
-    if(window.supabaseClient) return window.supabaseClient;
-
-    if(window.supabase && typeof window.supabase.from==="function"){
-      return window.supabase;
-    }
-
-    const cfg=window.SUPABASE_CONFIG||window.supabaseConfig||{};
-    const url=cfg.url||cfg.supabaseUrl||window.SUPABASE_URL;
-    const key=cfg.anonKey||cfg.key||cfg.supabaseAnonKey||window.SUPABASE_ANON_KEY;
-
-    if(url && key && window.supabase && typeof window.supabase.createClient==="function"){
-      window.supabaseClient=window.supabase.createClient(url,key);
-      return window.supabaseClient;
-    }
+    if(window.romaneioSupabaseClient)return window.romaneioSupabaseClient;
+    const cfg=window.ROMANEIO_SUPABASE||{};
+    if(!cfg.url||!cfg.anonKey||!window.supabase?.createClient)return null;
+    window.romaneioSupabaseClient=window.supabase.createClient(cfg.url,cfg.anonKey);
+    return window.romaneioSupabaseClient;
   }catch(e){
-    console.warn("Supabase não inicializado:",e);
+    console.error("Supabase não inicializado:",e);
+    return null;
   }
-  return null;
+}
+
+function getSupabaseRouteId(){
+  return (window.ROMANEIO_SUPABASE&&window.ROMANEIO_SUPABASE.rotaId)||"rota-do-dia";
 }
 
 async function syncRouteRulesToSupabase(rules){
-  const client=getSupabaseClient();
-  if(!client)return false;
+  const db=getSupabaseClient();
+  if(!db)return false;
+  const rotaId=getSupabaseRouteId();
 
-  try{
-    const payload=Object.entries(rules).map(([bairro_key,r])=>({
-      rota_id:SUPABASE_ROUTE_ID,
-      bairro_key,
-      bairro:r.bairro||bairro_key,
-      aliases:Array.isArray(r.aliases)?r.aliases:[],
-      sequence:Array.isArray(r.sequence)?r.sequence:[],
-      no_quadra:!!r.noQuadra,
-      variants:r.variants||{},
-      updated_at:new Date().toISOString()
-    }));
+  const payload=Object.entries(rules).map(([bairro_key,r])=>({
+    rota_id:rotaId,
+    bairro_key,
+    bairro:r.bairro||bairro_key,
+    aliases:Array.isArray(r.aliases)?r.aliases:[],
+    sequence:Array.isArray(r.sequence)?r.sequence:[],
+    no_quadra:!!r.noQuadra,
+    variants:r.variants||{},
+    updated_at:new Date().toISOString()
+  }));
 
-    if(!payload.length)return true;
+  if(!payload.length)return true;
 
-    const {error}=await client
-      .from(SUPABASE_TABLE)
-      .upsert(payload,{onConflict:"rota_id,bairro_key"});
+  const {error}=await db.from(SUPABASE_TABLE)
+    .upsert(payload,{onConflict:"rota_id,bairro_key"});
 
-    if(error){
-      console.error("Erro ao salvar cadastro no Supabase:",error);
-      return false;
-    }
-
-    return true;
-  }catch(e){
-    console.error("Erro ao sincronizar cadastro:",e);
+  if(error){
+    console.error("Erro ao salvar cadastro no Supabase:",error);
     return false;
   }
+  return true;
 }
 
 async function deleteRouteRuleFromSupabase(bairroKey){
-  const client=getSupabaseClient();
-  if(!client)return false;
+  const db=getSupabaseClient();
+  if(!db)return false;
 
-  try{
-    const {error}=await client
-      .from(SUPABASE_TABLE)
-      .delete()
-      .eq("rota_id",SUPABASE_ROUTE_ID)
-      .eq("bairro_key",bairroKey);
+  const {error}=await db.from(SUPABASE_TABLE)
+    .delete()
+    .eq("rota_id",getSupabaseRouteId())
+    .eq("bairro_key",bairroKey);
 
-    if(error){
-      console.error("Erro ao remover cadastro do Supabase:",error);
-      return false;
-    }
-
-    return true;
-  }catch(e){
-    console.error("Erro ao remover cadastro:",e);
+  if(error){
+    console.error("Erro ao remover cadastro do Supabase:",error);
     return false;
   }
+  return true;
 }
 
 async function loadRouteRulesFromSupabase(){
-  const client=getSupabaseClient();
-  if(!client)return false;
+  const db=getSupabaseClient();
+  if(!db)return false;
 
-  try{
-    const {data,error}=await client
-      .from(SUPABASE_TABLE)
-      .select("*")
-      .eq("rota_id",SUPABASE_ROUTE_ID)
-      .order("bairro",{ascending:true});
+  const {data,error}=await db.from(SUPABASE_TABLE)
+    .select("*")
+    .eq("rota_id",getSupabaseRouteId())
+    .order("bairro",{ascending:true});
 
-    if(error){
-      console.error("Erro ao carregar cadastro do Supabase:",error);
-      return false;
-    }
-
-    if(!Array.isArray(data))return false;
-
-    const cloudRules={};
-
-    data.forEach(row=>{
-      const key=normKey(row.bairro_key||row.bairro);
-      if(!key)return;
-
-      cloudRules[key]={
-        bairro:row.bairro||row.bairro_key,
-        aliases:Array.isArray(row.aliases)?row.aliases:[],
-        sequence:Array.isArray(row.sequence)?row.sequence:[],
-        noQuadra:!!row.no_quadra,
-        variants:row.variants&&typeof row.variants==="object"?row.variants:{}
-      };
-    });
-
-    const localRules=loadRouteRules();
-    const merged={...localRules,...cloudRules};
-
-    saveRouteRulesLocal(merged);
-
-    // Se havia regras locais que ainda não estavam na nuvem,
-    // envia somente essas regras para não perder cadastros antigos.
-    const localOnly=Object.fromEntries(
-      Object.entries(localRules).filter(([key])=>!cloudRules[key])
-    );
-
-    if(Object.keys(localOnly).length){
-      await syncRouteRulesToSupabase({...cloudRules,...localOnly});
-    }
-
-    return true;
-  }catch(e){
-    console.error("Erro ao carregar regras:",e);
+  if(error){
+    console.error("Erro ao carregar cadastro do Supabase:",error);
     return false;
   }
+
+  const cloudRules={};
+
+  (data||[]).forEach(row=>{
+    const key=normKey(row.bairro_key||row.bairro);
+    if(!key)return;
+
+    cloudRules[key]={
+      bairro:row.bairro||row.bairro_key,
+      aliases:Array.isArray(row.aliases)?row.aliases:[],
+      sequence:Array.isArray(row.sequence)?row.sequence:[],
+      noQuadra:!!row.no_quadra,
+      variants:row.variants&&typeof row.variants==="object"?row.variants:{}
+    };
+  });
+
+  const localRules=loadRouteRules();
+
+  // Nuvem é a fonte principal; regras que ainda só existiam no aparelho
+  // também são enviadas para a nuvem.
+  const merged={...localRules,...cloudRules};
+  saveRouteRulesLocal(merged);
+
+  const localOnly=Object.fromEntries(
+    Object.entries(localRules).filter(([key])=>!cloudRules[key])
+  );
+
+  if(Object.keys(localOnly).length){
+    await syncRouteRulesToSupabase({...cloudRules,...localOnly});
+  }
+
+  return true;
 }
 
 async function initializeRouteRules(){
@@ -160,7 +129,6 @@ function loadRouteRules(){try{return JSON.parse(localStorage.getItem(ROUTE_RULES
 function saveRouteRulesLocal(x){
   localStorage.setItem(ROUTE_RULES_KEY,JSON.stringify(x));
 }
-
 function saveRouteRules(x){
   saveRouteRulesLocal(x);
   syncRouteRulesToSupabase(x);
@@ -284,8 +252,7 @@ function renderRouteRules(){
    if(!r)return;
    if(!confirm(`Remover o bairro "${r.bairro}" e toda a sequência salva?`))return;
    delete rules[key];
-   saveRouteRulesLocal(rules);
-   deleteRouteRuleFromSupabase(key);
+   saveRouteRules(rules);
    if(editingRouteKey===key)closeRouteEditor();
    renderRouteRules();
    if(rows.length)analyze();
