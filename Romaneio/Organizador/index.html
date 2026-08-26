@@ -42,9 +42,31 @@
 }
 .bottomNav{scroll-snap-type:x proximity;}
 </style>
+<style>
+.topPlanilhaPronta{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:calc(100% - 32px);
+  margin:12px 16px 0;
+  min-height:48px;
+  padding:10px 14px;
+  border:0;
+  border-radius:12px;
+  background:#111827;
+  color:#fff;
+  font-size:16px;
+  font-weight:700;
+  text-decoration:none;
+  box-shadow:0 2px 8px #0002;
+  cursor:pointer;
+}
+.topPlanilhaPronta:active{transform:scale(.99)}
+</style>
 </head>
 <body>
 <header class="appHeader"><div class="brand">ROMANEIO</div><div class="subtitle">Roteirização diária</div></header>
+<a id="topPlanilhaPronta" class="topPlanilhaPronta" href="planilha-pronta.html">📋 Planilha pronta</a>
 
 <main>
 <section id="screenRoute" class="screen activeScreen">
