@@ -3,12 +3,168 @@ const $=id=>document.getElementById(id);
 const ROUTE_RULES_KEY="romaneio_route_rules_v2";
 const ADDRESS_FIXES_KEY="romaneio_address_fixes_v1";
 
+const SUPABASE_TABLE="romaneio_regras";
+const SUPABASE_ROUTE_ID =
+  window.ROMANEIO_ROUTE_ID ||
+  window.ROTA_ID ||
+  window.rotaId ||
+  "romaneio";
+
+function getSupabaseClient(){
+  try{
+    if(window.supabaseClient) return window.supabaseClient;
+
+    if(window.supabase && typeof window.supabase.from==="function"){
+      return window.supabase;
+    }
+
+    const cfg=window.SUPABASE_CONFIG||window.supabaseConfig||{};
+    const url=cfg.url||cfg.supabaseUrl||window.SUPABASE_URL;
+    const key=cfg.anonKey||cfg.key||cfg.supabaseAnonKey||window.SUPABASE_ANON_KEY;
+
+    if(url && key && window.supabase && typeof window.supabase.createClient==="function"){
+      window.supabaseClient=window.supabase.createClient(url,key);
+      return window.supabaseClient;
+    }
+  }catch(e){
+    console.warn("Supabase não inicializado:",e);
+  }
+  return null;
+}
+
+async function syncRouteRulesToSupabase(rules){
+  const client=getSupabaseClient();
+  if(!client)return false;
+
+  try{
+    const payload=Object.entries(rules).map(([bairro_key,r])=>({
+      rota_id:SUPABASE_ROUTE_ID,
+      bairro_key,
+      bairro:r.bairro||bairro_key,
+      aliases:Array.isArray(r.aliases)?r.aliases:[],
+      sequence:Array.isArray(r.sequence)?r.sequence:[],
+      no_quadra:!!r.noQuadra,
+      variants:r.variants||{},
+      updated_at:new Date().toISOString()
+    }));
+
+    if(!payload.length)return true;
+
+    const {error}=await client
+      .from(SUPABASE_TABLE)
+      .upsert(payload,{onConflict:"rota_id,bairro_key"});
+
+    if(error){
+      console.error("Erro ao salvar cadastro no Supabase:",error);
+      return false;
+    }
+
+    return true;
+  }catch(e){
+    console.error("Erro ao sincronizar cadastro:",e);
+    return false;
+  }
+}
+
+async function deleteRouteRuleFromSupabase(bairroKey){
+  const client=getSupabaseClient();
+  if(!client)return false;
+
+  try{
+    const {error}=await client
+      .from(SUPABASE_TABLE)
+      .delete()
+      .eq("rota_id",SUPABASE_ROUTE_ID)
+      .eq("bairro_key",bairroKey);
+
+    if(error){
+      console.error("Erro ao remover cadastro do Supabase:",error);
+      return false;
+    }
+
+    return true;
+  }catch(e){
+    console.error("Erro ao remover cadastro:",e);
+    return false;
+  }
+}
+
+async function loadRouteRulesFromSupabase(){
+  const client=getSupabaseClient();
+  if(!client)return false;
+
+  try{
+    const {data,error}=await client
+      .from(SUPABASE_TABLE)
+      .select("*")
+      .eq("rota_id",SUPABASE_ROUTE_ID)
+      .order("bairro",{ascending:true});
+
+    if(error){
+      console.error("Erro ao carregar cadastro do Supabase:",error);
+      return false;
+    }
+
+    if(!Array.isArray(data))return false;
+
+    const cloudRules={};
+
+    data.forEach(row=>{
+      const key=normKey(row.bairro_key||row.bairro);
+      if(!key)return;
+
+      cloudRules[key]={
+        bairro:row.bairro||row.bairro_key,
+        aliases:Array.isArray(row.aliases)?row.aliases:[],
+        sequence:Array.isArray(row.sequence)?row.sequence:[],
+        noQuadra:!!row.no_quadra,
+        variants:row.variants&&typeof row.variants==="object"?row.variants:{}
+      };
+    });
+
+    const localRules=loadRouteRules();
+    const merged={...localRules,...cloudRules};
+
+    saveRouteRulesLocal(merged);
+
+    // Se havia regras locais que ainda não estavam na nuvem,
+    // envia somente essas regras para não perder cadastros antigos.
+    const localOnly=Object.fromEntries(
+      Object.entries(localRules).filter(([key])=>!cloudRules[key])
+    );
+
+    if(Object.keys(localOnly).length){
+      await syncRouteRulesToSupabase({...cloudRules,...localOnly});
+    }
+
+    return true;
+  }catch(e){
+    console.error("Erro ao carregar regras:",e);
+    return false;
+  }
+}
+
+async function initializeRouteRules(){
+  await loadRouteRulesFromSupabase();
+  renderRouteRules();
+  renderSavedVariations();
+  renderUnknown();
+}
+
+
 function cleanText(v){return String(v??"").replace(/\s+/g," ").trim()}
 function normKey(v){return cleanText(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 
 function loadRouteRules(){try{return JSON.parse(localStorage.getItem(ROUTE_RULES_KEY)||"{}")}catch(e){return {}}}
-function saveRouteRules(x){localStorage.setItem(ROUTE_RULES_KEY,JSON.stringify(x))}
+function saveRouteRulesLocal(x){
+  localStorage.setItem(ROUTE_RULES_KEY,JSON.stringify(x));
+}
+
+function saveRouteRules(x){
+  saveRouteRulesLocal(x);
+  syncRouteRulesToSupabase(x);
+}
 function loadAddressFixes(){try{return JSON.parse(localStorage.getItem(ADDRESS_FIXES_KEY)||"{}")||{}}catch(e){return {}}}
 function saveAddressFixes(x){localStorage.setItem(ADDRESS_FIXES_KEY,JSON.stringify(x))}
 function addressFixKey(address){return normKey(address)}
@@ -128,7 +284,8 @@ function renderRouteRules(){
    if(!r)return;
    if(!confirm(`Remover o bairro "${r.bairro}" e toda a sequência salva?`))return;
    delete rules[key];
-   saveRouteRules(rules);
+   saveRouteRulesLocal(rules);
+   deleteRouteRuleFromSupabase(key);
    if(editingRouteKey===key)closeRouteEditor();
    renderRouteRules();
    if(rows.length)analyze();
@@ -480,6 +637,4 @@ $("downloadCsv").onclick=()=>{
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
  a.href=URL.createObjectURL(blob);a.download="entregas_organizadas.csv";a.click();URL.revokeObjectURL(a.href);
 };
-renderRouteRules();
-renderSavedVariations();
-renderUnknown();
+initializeRouteRules();
