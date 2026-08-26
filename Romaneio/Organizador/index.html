@@ -63,6 +63,44 @@
 }
 .topPlanilhaPronta:active{transform:scale(.99)}
 </style>
+
+<style id="apk-nav-fix">
+.bottomNav{
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  justify-content:flex-start !important;
+  align-items:stretch !important;
+  width:100% !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+  overflow-x:scroll !important;
+  overflow-y:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  touch-action:pan-x !important;
+  scrollbar-width:none !important;
+  padding:0 !important;
+}
+.bottomNav::-webkit-scrollbar{display:none !important}
+.bottomNav .navItem{
+  display:flex !important;
+  flex:0 0 33.333333% !important;
+  width:33.333333% !important;
+  min-width:33.333333% !important;
+  max-width:33.333333% !important;
+  box-sizing:border-box !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+}
+.bottomNav .navItem span{
+  display:block !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+}
+</style>
 </head>
 <body>
 <header class="appHeader"><div class="brand">ROMANEIO</div><div class="subtitle">Roteirização diária</div></header>
@@ -180,6 +218,25 @@ function show(x){
 }
 a.onclick=()=>show('route');b.onclick=()=>show('cadastro');n.onclick=()=>show('view');
 p.onclick=()=>{window.location.href='planilha-pronta.html'};
+})();
+</script>
+
+<script>
+(function(){
+  var nav=document.querySelector('.bottomNav');
+  if(!nav) return;
+  var down=false,startX=0,startScroll=0,moved=false;
+  nav.addEventListener('touchstart',function(e){
+    if(!e.touches.length)return;
+    down=true;moved=false;startX=e.touches[0].clientX;startScroll=nav.scrollLeft;
+  },{passive:true});
+  nav.addEventListener('touchmove',function(e){
+    if(!down||!e.touches.length)return;
+    var dx=e.touches[0].clientX-startX;
+    if(Math.abs(dx)>5)moved=true;
+    if(moved) nav.scrollLeft=startScroll-dx;
+  },{passive:true});
+  nav.addEventListener('touchend',function(){down=false;}, {passive:true});
 })();
 </script>
 </body>
