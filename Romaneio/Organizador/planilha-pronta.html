@@ -122,7 +122,8 @@ function move(from,to){if(from===to||from<0||to<0||to>=rows.length)return;const 
 function render(){
  const total=rows.length,fin=done.filter(Boolean).length;$('total').textContent=total;$('left').textContent=total-fin;$('done').textContent=fin;$('bar').style.width=(total?fin/total*100:0)+'%';
  const box=$('list');box.innerHTML='';
- rows.forEach((r,i)=>{const el=document.createElement('div');el.className='row'+(done[i]?' done':'');el.dataset.i=i;
+ if(rows.length && done.every(Boolean)){box.innerHTML='<div style="padding:24px 8px;text-align:center;font-weight:700">🎉 Todas as entregas foram finalizadas!</div>';return}
+ rows.forEach((r,i)=>{if(done[i]) return; const el=document.createElement('div');el.className='row';el.dataset.i=i;
  el.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="seq"></div><div class="addr"></div></div><div class="rowActions"><button class="secondary back">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
  el.querySelector('.seq').textContent=r.sequence||String(i+1);el.querySelector('.addr').textContent=r.address||'Endereço não informado';
  el.querySelector('.ok').onclick=()=>{done[i]=true;sync()};el.querySelector('.back').onclick=()=>{done[i]=false;sync()};
