@@ -33,57 +33,68 @@ jobs:
         run: |
           set -e
 
+          echo "====================================="
+          echo "ARQUIVO DO APK"
+          echo "====================================="
+
+          ls -lh romaneio-apk-filepicker-fixed.zip
+
           rm -rf android-project
+          mkdir -p android-project
 
-          mkdir android-project
+          unzip -q romaneio-apk-filepicker-fixed.zip -d android-project
 
-          unzip -q "romaneio-apk-filepicker-fixed.zip" -d android-project
+          echo ""
+          echo "====================================="
+          echo "ARQUIVOS EXTRAÍDOS"
+          echo "====================================="
 
-          echo "Projeto extraído:"
           find android-project -maxdepth 6 -type f | sort
 
-      - name: Corrigir MainActivity
+      - name: Localizar projeto Gradle
         shell: bash
         run: |
           set -e
 
-          MAIN="android-project/app/src/main/java/com/lenilson/romaneio/MainActivity.java"
+          SETTINGS=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1 || true)
 
-          if [ ! -f "$MAIN" ]; then
-            echo "ERRO: MainActivity.java não encontrada."
-            echo "Arquivos encontrados:"
-            find android-project -type f | sort
+          if [ -z "$SETTINGS" ]; then
+            echo "ERRO: nenhum settings.gradle encontrado."
             exit 1
           fi
 
-          # Corrige caracteres \n gravados literalmente
-          # no arquivo Java.
-          sed -i 's/\\n/\
-/g' "$MAIN"
-
-          echo "MainActivity corrigida."
-
-          echo "Verificando configurações:"
-          grep -n "SITE_URL\|loadUrl\|CacheMode" "$MAIN" || true
+          ROOT=$(dirname "$SETTINGS")
+          echo "Projeto Gradle encontrado em:"
+          echo "$ROOT"
 
       - name: Verificar projeto
         shell: bash
         run: |
           set -e
 
+          test -f android-project/app/src/main/java/com/lenilson/romaneio/MainActivity.java
           test -f android-project/settings.gradle
           test -f android-project/build.gradle
           test -f android-project/app/build.gradle
           test -f android-project/app/src/main/AndroidManifest.xml
 
-          echo "Estrutura Android OK."
+          echo "====================================="
+          echo "PROJETO ANDROID OK"
+          echo "====================================="
 
       - name: Gerar APK
         shell: bash
         run: |
           set -e
 
-          cd android-project
+          SETTINGS=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
+          ROOT=$(dirname "$SETTINGS")
+
+          echo "====================================="
+          echo "GERANDO APK"
+          echo "====================================="
+
+          cd "$ROOT"
 
           gradle :app:assembleDebug \
             --no-daemon \
@@ -94,13 +105,17 @@ jobs:
         run: |
           set -e
 
-          APK=$(find android-project/app/build/outputs/apk \
+          echo "====================================="
+          echo "PROCURANDO APK"
+          echo "====================================="
+
+          APK=$(find android-project \
             -type f \
-            -name "*.apk" \
+            -path "*/build/outputs/apk/*.apk" \
             | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "ERRO: APK não foi encontrado."
+            echo "ERRO: nenhum APK foi gerado."
             exit 1
           fi
 
@@ -108,15 +123,18 @@ jobs:
           echo "$APK"
 
           mkdir -p final
+          cp "$APK" final/Romaneio.apk
 
-          cp "$APK" "final/Romaneio.apk"
+          echo ""
+          echo "====================================="
+          echo "APK FINAL"
+          echo "====================================="
 
-          echo "APK final:"
-          ls -lh "final/Romaneio.apk"
+          ls -lh final/Romaneio.apk
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio.apk
+          name: Romaneio-APK
           path: final/Romaneio.apk
           if-no-files-found: error
