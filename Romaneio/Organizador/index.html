@@ -5,106 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Romaneio • Rota do dia</title>
 <link rel="stylesheet" href="styles.css">
-<style>
-.bottomNav{
-  display:flex!important;
-  flex-direction:row!important;
-  flex-wrap:nowrap!important;
-  justify-content:flex-start!important;
-  align-items:stretch!important;
-  width:100%!important;
-  max-width:none!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  overscroll-behavior-x:contain!important;
-  -webkit-overflow-scrolling:touch!important;
-  touch-action:pan-x!important;
-  scrollbar-width:none!important;
-  padding:0!important;
-}
-.bottomNav::-webkit-scrollbar{display:none!important}
-.bottomNav .navItem{
-  flex:0 0 33.333333%!important;
-  width:33.333333%!important;
-  min-width:33.333333%!important;
-  max-width:33.333333%!important;
-  white-space:nowrap!important;
-  font-size:18px!important;
-  line-height:1.2!important;
-  scroll-snap-align:start;
-}
-.bottomNav .navItem span{
-  display:block!important;
-  font-size:11px!important;
-  line-height:1.2!important;
-  font-weight:700!important;
-  white-space:nowrap!important;
-}
-.bottomNav{scroll-snap-type:x proximity;}
-</style>
-<style>
-.topPlanilhaPronta{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width:calc(100% - 32px);
-  margin:12px 16px 0;
-  min-height:48px;
-  padding:10px 14px;
-  border:0;
-  border-radius:12px;
-  background:#111827;
-  color:#fff;
-  font-size:16px;
-  font-weight:700;
-  text-decoration:none;
-  box-shadow:0 2px 8px #0002;
-  cursor:pointer;
-}
-.topPlanilhaPronta:active{transform:scale(.99)}
-</style>
-
-<style id="apk-nav-fix">
-.bottomNav{
-  display:flex !important;
-  flex-direction:row !important;
-  flex-wrap:nowrap !important;
-  justify-content:flex-start !important;
-  align-items:stretch !important;
-  width:100% !important;
-  max-width:none !important;
-  box-sizing:border-box !important;
-  overflow-x:scroll !important;
-  overflow-y:hidden !important;
-  -webkit-overflow-scrolling:touch !important;
-  touch-action:pan-x !important;
-  scrollbar-width:none !important;
-  padding:0 !important;
-}
-.bottomNav::-webkit-scrollbar{display:none !important}
-.bottomNav .navItem{
-  display:flex !important;
-  flex:0 0 33.333333% !important;
-  width:33.333333% !important;
-  min-width:33.333333% !important;
-  max-width:33.333333% !important;
-  box-sizing:border-box !important;
-  white-space:nowrap !important;
-  overflow:hidden !important;
-}
-.bottomNav .navItem span{
-  display:block !important;
-  white-space:nowrap !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-  font-size:11px !important;
-  font-weight:700 !important;
-}
-</style>
 </head>
 <body>
 <header class="appHeader"><div class="brand">ROMANEIO</div><div class="subtitle">Roteirização diária</div></header>
-<a id="topPlanilhaPronta" class="topPlanilhaPronta" href="planilha-pronta.html">📋 Planilha pronta</a>
 
 <main>
 <section id="screenRoute" class="screen activeScreen">
@@ -175,19 +78,35 @@
 <textarea id="routeBairroAliases" placeholder="Antônio Lins&#10;Antonio Lins&#10;Antônia Lins&#10;Conj. Antônio Lins"></textarea>
 <label><b>Sequência das paradas</b></label>
 <label class="checkLine"><input id="routeNoQuadra" type="checkbox"> <span>Este bairro/condomínio não usa quadra: somente o nome do local vale</span></label>
-<p class="muted">Se marcar esta opção, não precisa cadastrar quadras.</p>
+<p class="muted">Se marcar esta opção, não precisa cadastrar quadras. Qualquer endereço reconhecido por este bairro será considerado válido e não ficará vermelho por falta de quadra.</p>
 <textarea id="routeSequence" placeholder="D9&#10;D10&#10;D15&#10;Rua São José&#10;Avenida Principal"></textarea>
 <button id="saveRouteRule" class="primary full">＋ Salvar bairro e sequência</button>
 </div>
+
 <div class="card">
-<div class="eyebrow">SALVOS</div><h2>Minhas regras</h2>
+<div class="eyebrow">SALVOS</div>
+<h2>Minhas regras</h2>
 <div id="routeRulesList" class="savedRules"></div>
-<div class="variationManager"><div class="eyebrow">VARIAÇÕES SALVAS</div><div id="savedVariationsList" class="savedVariations"></div></div>
+<div class="variationManager">
+<div class="eyebrow">VARIAÇÕES SALVAS</div>
+<p class="muted">Se uma variação foi associada ao bairro errado, corrija ou remova aqui.</p>
+<div id="savedVariationsList" class="savedVariations"></div>
+</div>
+
 <div id="routeEditor" class="routeEditor" hidden>
 <h3>Editar bairro + variações + sequência</h3>
-<input id="editRouteBairro" type="text"><textarea id="editRouteAliases"></textarea>
+<label><b>Nome oficial</b></label>
+<input id="editRouteBairro" type="text">
+<label><b>Variações</b></label>
+<textarea id="editRouteAliases"></textarea>
+<label><b>Sequência</b></label>
+<label class="checkLine"><input id="editRouteNoQuadra" type="checkbox"> <span>Este bairro/condomínio não usa quadra</span></label>
 <textarea id="editRouteSequence"></textarea>
-<div class="actions"><button id="saveEditedRoute" class="primary">Salvar alterações</button><button id="clearEditRoute" class="secondary">Escrever novamente</button><button id="cancelEditRoute" class="secondary">Cancelar</button></div>
+<div class="actions">
+<button id="saveEditedRoute" class="primary">Salvar alterações</button>
+<button id="clearEditRoute" class="secondary">Escrever novamente</button>
+<button id="cancelEditRoute" class="secondary">Cancelar</button>
+</div>
 </div>
 </div>
 </section>
@@ -206,37 +125,28 @@
 <script src="supabase-config.js"></script>
 <script src="address.js"></script>
 <script>
-(()=>{
-const r=document.getElementById('screenRoute'),c=document.getElementById('screenCadastro'),v=document.getElementById('screenView');
-const a=document.getElementById('navRoute'),b=document.getElementById('navCadastro'),n=document.getElementById('navView'),p=document.getElementById('navPlanilhaPronta');
-function show(x){
- [r,c,v].forEach(el=>el.classList.remove('activeScreen'));
- (x==='route'?r:x==='cadastro'?c:v).classList.add('activeScreen');
- [a,b,n,p].forEach(el=>el.classList.remove('active'));
- (x==='route'?a:x==='cadastro'?b:n).classList.add('active');
- window.scrollTo(0,0);
-}
-a.onclick=()=>show('route');b.onclick=()=>show('cadastro');n.onclick=()=>show('view');
-p.onclick=()=>{window.location.href='planilha-pronta.html'};
-})();
-</script>
+(()=> {
+const r=document.getElementById('screenRoute');
+const c=document.getElementById('screenCadastro');
+const v=document.getElementById('screenView');
+const a=document.getElementById('navRoute');
+const b=document.getElementById('navCadastro');
+const n=document.getElementById('navView');
+const p=document.getElementById('navPlanilhaPronta');
 
-<script>
-(function(){
-  var nav=document.querySelector('.bottomNav');
-  if(!nav) return;
-  var down=false,startX=0,startScroll=0,moved=false;
-  nav.addEventListener('touchstart',function(e){
-    if(!e.touches.length)return;
-    down=true;moved=false;startX=e.touches[0].clientX;startScroll=nav.scrollLeft;
-  },{passive:true});
-  nav.addEventListener('touchmove',function(e){
-    if(!down||!e.touches.length)return;
-    var dx=e.touches[0].clientX-startX;
-    if(Math.abs(dx)>5)moved=true;
-    if(moved) nav.scrollLeft=startScroll-dx;
-  },{passive:true});
-  nav.addEventListener('touchend',function(){down=false;}, {passive:true});
+function show(x){
+  [r,c,v].forEach(el=>el.classList.remove('activeScreen'));
+  const target=x==='route'?r:x==='cadastro'?c:v;
+  target.classList.add('activeScreen');
+  [a,b,n,p].forEach(el=>el.classList.remove('active'));
+  (x==='route'?a:x==='cadastro'?b:n).classList.add('active');
+  scrollTo(0,0);
+}
+
+a.onclick=()=>show('route');
+b.onclick=()=>show('cadastro');
+n.onclick=()=>show('view');
+p.onclick=()=>{window.location.href='planilha-pronta.html'};
 })();
 </script>
 </body>
