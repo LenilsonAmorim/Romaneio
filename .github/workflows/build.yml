@@ -17,22 +17,49 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Preparar projeto Android
         run: |
           mkdir -p android-project
-          unzip -q Romaneio_APK_WebView_AUTOATUALIZAVEL_v2.zip -d android-project
+          unzip -q Romaneio_APK_WebView_ATUALIZADO.zip -d android-project
+
+      - name: Encontrar projeto Gradle
+        run: |
+          GRADLEW=$(find android-project -type f -name "gradlew" | head -n 1)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "ERRO: nenhum projeto Gradle encontrado no ZIP."
+            echo "Conteúdo encontrado:"
+            find android-project -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "Projeto encontrado em: $PROJECT_DIR"
+
+          chmod +x "$GRADLEW"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Gerar APK
         run: |
-          cd android-project
-          gradle assembleDebug --no-daemon
+          cd "$PROJECT_DIR"
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Localizar APK
+        run: |
+          APK=$(find "$PROJECT_DIR" -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERRO: APK não foi gerado."
+            exit 1
+          fi
+
+          echo "APK encontrado: $APK"
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: Romaneio APK
-          path: android-project/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
