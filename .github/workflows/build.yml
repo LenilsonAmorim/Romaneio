@@ -23,7 +23,7 @@ jobs:
       - name: Preparar projeto Android
         run: |
           mkdir -p android-project
-          unzip -q Romaneio_APK_WebView.zip -d android-project
+          unzip -q Romaneio_APK_WebView_ATUALIZADO.zip -d android-project
 
       - name: Gerar APK
         run: |
