@@ -1,15 +1,125 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Planilha pronta</title>
-<style>body{margin:0;background:#f4f6f8;font-family:Arial;color:#17202a}header{background:#111827;color:#fff;padding:18px}main{max-width:760px;margin:auto;padding:14px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}button,input{font-size:16px;padding:12px;border-radius:10px;border:1px solid #ccd3da}button{font-weight:700;border:0;min-height:44px}.primary{background:#111827;color:#fff}.secondary{background:#e9edf1}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{text-align:center;background:#f1f3f5;padding:10px;border-radius:10px}.stat b{display:block;font-size:22px}.item{padding:12px 0;border-bottom:1px solid #ddd;touch-action:pan-y}.top{display:flex;gap:10px}.handle{width:42px;min-width:42px;height:42px;display:grid;place-items:center;background:#eef1f4;border-radius:10px;touch-action:none}.info{flex:1}.addr{font-weight:800;font-size:17px}.meta{color:#69737d;font-size:14px;margin-top:4px}.actions{display:flex;gap:7px;margin:9px 0 0 52px}.actions button{flex:1}.dragging{opacity:.35}.over{border-top:3px solid #111827}.progress{height:8px;background:#e5e9ed;border-radius:10px;margin-top:10px}.bar{height:100%;background:#111827;width:0}</style></head><body>
-<header><b>ROMANEIO</b><div>📋 Planilha pronta</div></header><main>
-<div class="card"><h2>Adicionar planilha</h2><p>Use uma planilha já pronta. Ela será somente visualizada; não é necessário cadastrar bairros ou quadras.</p><input id="file" type="file" accept=".xlsx,.xls,.csv"><p id="status">Escolha o arquivo.</p></div>
-<div id="summary" class="card" hidden><div class="stats"><div class="stat"><b id="total">0</b>Total</div><div class="stat"><b id="left">0</b>Restantes</div><div class="stat"><b id="done">0</b>Entregues</div></div><div class="progress"><div id="bar" class="bar"></div></div><div class="actions"><button id="undoAll" class="secondary">↩ Desfazer tudo</button><button id="finishAll" class="primary">✓ Finalizar rota</button></div><p>Pressione e segure ⋮⋮ para arrastar uma entrega.</p></div>
-<div id="list" class="card" hidden></div></main>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Planilha pronta • Rota do dia</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}
+header{background:#111827;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+header b{font-size:22px}header small{display:block;opacity:.8;margin-top:4px}
+main{max-width:760px;margin:auto;padding:14px 12px 90px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+input[type=file]{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;background:#fff}
+button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:700;min-height:44px}
+.primary{background:#111827;color:#fff}.secondary{background:#e9edf1;color:#17202a}
+.actions{display:flex;gap:8px;margin-top:12px}.actions button{flex:1}.status,.hint{font-size:14px;color:#66717d;margin-top:9px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{text-align:center;background:#f1f3f5;padding:10px;border-radius:10px}.stat b{display:block;font-size:22px}
+.progress{height:8px;background:#e5e9ed;border-radius:10px;margin-top:12px}.bar{height:100%;background:#111827;width:0}
+.row{padding:12px 0;border-bottom:1px solid #e7eaed}.row.done{opacity:.48}.top{display:flex;gap:10px;align-items:flex-start}
+.handle{width:42px;min-width:42px;height:42px;border-radius:10px;background:#eef1f4;display:grid;place-items:center;font-size:20px;touch-action:none}
+.seq{width:62px;min-width:62px;font-weight:800;font-size:16px;padding-top:9px}.addr{flex:1;font-size:17px;font-weight:800;word-break:break-word;padding-top:9px}
+.rowActions{display:flex;gap:7px;margin:9px 0 0 52px}.rowActions button{flex:1}
+.dragging{opacity:.3}.over{border-top:3px solid #111827}
+.tableHead{display:grid;grid-template-columns:42px 72px 1fr;gap:10px;font-size:12px;font-weight:800;color:#66717d;padding-bottom:8px;border-bottom:1px solid #ddd}
+</style>
+</head>
+<body>
+<header><b>ROMANEIO</b><small>📋 Planilha pronta • 2 colunas</small></header>
+<main>
+<section class="card">
+<h2>📋 Adicionar planilha</h2>
+<p>Para esta página, a planilha deve ter somente duas colunas:</p>
+<p><b>1ª coluna:</b> sequence<br><b>2ª coluna:</b> endereços</p>
+<input id="file" type="file" accept=".xlsx,.xls,.csv">
+<div id="status" class="status">Nenhuma planilha carregada.</div>
+<div class="hint">Cada linha da planilha representa exatamente 1 endereço.</div>
+</section>
+
+<section id="summary" class="card" hidden>
+<div class="stats"><div class="stat"><b id="total">0</b>Total</div><div class="stat"><b id="left">0</b>Restantes</div><div class="stat"><b id="done">0</b>Entregues</div></div>
+<div class="progress"><div id="bar" class="bar"></div></div>
+<div class="actions"><button id="undoAll" class="secondary">↩ Desfazer tudo</button><button id="finishAll" class="primary">✓ Finalizar rota</button></div>
+<p class="hint">Pressione e segure ⋮⋮ para arrastar uma linha para outra posição.</p>
+</section>
+
+<section id="listCard" class="card" hidden>
+<div class="tableHead"><span></span><span>SEQUENCE</span><span>ENDEREÇOS</span></div>
+<div id="list"></div>
+</section>
+</main>
+
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
-(()=>{let rows=[],done=[],drag=-1,timer=null,active=false;const $=x=>document.getElementById(x),t=v=>String(v??'').trim();
-function get(r,a){for(const k of a)if(r[k]!=null&&t(r[k]))return t(r[k]);return''}
-function esc(s){return t(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-function render(){let n=rows.length,d=done.filter(Boolean).length;$('total').textContent=n;$('left').textContent=n-d;$('done').textContent=d;$('bar').style.width=(n?d/n*100:0)+'%';let box=$('list');box.innerHTML='';rows.forEach((r,i)=>{let item=document.createElement('div');item.className='item'+(done[i]?' dragging':'');item.dataset.i=i;let addr=get(r,['Endereço','Endereco','ENDEREÇO','ENDERECO','Rua','Logradouro'])||'Endereço não informado',bairro=get(r,['Bairro','BAIRRO'])||'Bairro não informado',q=get(r,['Quadra','QUADRA','Sequência','Sequencia']),num=get(r,['Número','Numero','Nº','NO'])||String(i+1);item.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="info"><div class="addr">'+esc(addr)+'</div><div class="meta">'+esc(bairro)+(q?' • '+esc(q):'')+'</div></div></div><div class="actions"><button class="secondary back">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';item.querySelector('.ok').onclick=()=>{done[i]=true;render()};item.querySelector('.back').onclick=()=>{done[i]=false;render()};let h=item.querySelector('.handle');h.onpointerdown=e=>{e.preventDefault();timer=setTimeout(()=>{active=true;h.closest('.item').classList.add('dragging')},400)};h.onpointermove=e=>{if(!active)return;document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));let z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.item');if(z&&Number(z.dataset.i)!==i)z.classList.add('over')};h.onpointerup=e=>{clearTimeout(timer);if(active){let z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.item'),to=z?Number(z.dataset.i):i;if(z&&to!==i){let a=rows.splice(i,1)[0],b=done.splice(i,1)[0];rows.splice(to,0,a);done.splice(to,0,b)}}active=false;render()};box.appendChild(item)})}
-$('file').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=x=>{try{let w=XLSX.read(new Uint8Array(x.target.result),{type:'array'}),s=w.Sheets[w.SheetNames[0]];rows=XLSX.utils.sheet_to_json(s,{defval:''});done=rows.map(()=>false);$('summary').hidden=false;$('list').hidden=false;$('status').textContent=f.name+' • '+rows.length+' registros';render()}catch(err){$('status').textContent='Não foi possível ler a planilha.'}};r.readAsArrayBuffer(f)};
-$('undoAll').onclick=()=>{done=rows.map(()=>false);render()};$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);render()}}
-})()</script></body></html>
+(()=> {
+let rows=[],done=[],hold=null,dragging=false,dragFrom=-1;
+const $=id=>document.getElementById(id);
+const text=v=>String(v??'').trim();
+
+function cleanHeader(v){return text(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
+function load(file){
+ const fr=new FileReader();
+ fr.onload=e=>{
+  try{
+   const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+   const ws=wb.Sheets[wb.SheetNames[0]];
+   const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+   if(!raw.length){$('status').textContent='A planilha está vazia.';return}
+   let start=0;
+   const h=raw[0].map(cleanHeader);
+   if(h.includes('sequence') && (h.includes('enderecos')||h.includes('enderecos'))){start=1}
+   rows=raw.slice(start).map(r=>({sequence:text(r[0]),address:text(r[1])})).filter(r=>r.sequence||r.address);
+   done=rows.map(()=>false);
+   $('status').textContent=file.name+' • '+rows.length+' endereços carregados.';
+   $('summary').hidden=false;$('listCard').hidden=false;render();
+  }catch(err){console.error(err);$('status').textContent='Não foi possível ler a planilha.'}
+ };
+ fr.readAsArrayBuffer(file);
+}
+function move(from,to){
+ if(from===to||from<0||to<0||to>=rows.length)return;
+ const r=rows.splice(from,1)[0],d=done.splice(from,1)[0];
+ rows.splice(to,0,r);done.splice(to,0,d);render();
+}
+function render(){
+ const total=rows.length,fin=done.filter(Boolean).length;
+ $('total').textContent=total;$('left').textContent=total-fin;$('done').textContent=fin;
+ $('bar').style.width=(total?fin/total*100:0)+'%';
+ const box=$('list');box.innerHTML='';
+ rows.forEach((r,i)=>{
+  const el=document.createElement('div');el.className='row'+(done[i]?' done':'');el.dataset.i=i;
+  el.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="seq"></div><div class="addr"></div></div><div class="rowActions"><button class="secondary back">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
+  el.querySelector('.seq').textContent=r.sequence||String(i+1);
+  el.querySelector('.addr').textContent=r.address||'Endereço não informado';
+  el.querySelector('.ok').onclick=()=>{done[i]=true;render()};
+  el.querySelector('.back').onclick=()=>{done[i]=false;render()};
+  const h=el.querySelector('.handle');
+  h.onpointerdown=e=>{
+   e.preventDefault();dragFrom=i;
+   hold=setTimeout(()=>{dragging=true;el.classList.add('dragging')},400);
+  };
+  h.onpointermove=e=>{
+   if(!dragging)return;
+   document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));
+   const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row');
+   if(target&&target!==el)target.classList.add('over');
+  };
+  h.onpointerup=e=>{
+   clearTimeout(hold);
+   if(dragging){
+    const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row');
+    const to=target?Number(target.dataset.i):dragFrom;
+    if(target&&to!==dragFrom)move(dragFrom,to);
+   }
+   dragging=false;dragFrom=-1;render();
+  };
+  h.onpointercancel=()=>{clearTimeout(hold);dragging=false;dragFrom=-1;render()};
+  box.appendChild(el);
+ });
+}
+$('file').addEventListener('change',e=>{if(e.target.files[0])load(e.target.files[0])});
+$('undoAll').onclick=()=>{done=rows.map(()=>false);render()};
+$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);render()}};
+})();
+</script>
+</body>
+</html>
