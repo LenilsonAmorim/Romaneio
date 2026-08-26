@@ -80,9 +80,14 @@ function renderRouteRules(){
  box.innerHTML=keys.map(k=>{
    const r=rules[k],seq=(r.sequence||[]).map(n=>"QD "+n).join(" → ");
    const desc=r.noQuadra?"Sem quadras — nome do local é suficiente":(seq||"Sem sequência");
-   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(desc)}</div></div><div class="ruleButtons"><button type="button" class="editBtn" data-edit-route="${escapeHtml(k)}">Editar</button><button type="button" class="deleteBtn" data-delete-route="${escapeHtml(k)}">Remover</button></div></div>`;
+   return `<div class="savedRule"><div><strong>${escapeHtml(r.bairro)}</strong><div class="muted">${escapeHtml(desc)}</div></div><div class="ruleButtons"><button type="button" class="editBtn" data-edit-route="${encodeURIComponent(k)}">Editar</button><button type="button" class="deleteBtn" data-delete-route="${encodeURIComponent(k)}">Remover</button></div></div>`;
  }).join("");
- box.querySelectorAll("[data-edit-route]").forEach(btn=>btn.onclick=()=>openRouteEditor(btn.dataset.editRoute));
+ box.querySelectorAll("[data-edit-route]").forEach(btn=>btn.onclick=(e)=>{
+   e.preventDefault();
+   e.stopPropagation();
+   const key=decodeURIComponent(btn.dataset.editRoute||"");
+   openRouteEditor(key);
+ });
  box.querySelectorAll("[data-delete-route]").forEach(btn=>btn.onclick=()=>{
    const key=btn.dataset.deleteRoute,rules=loadRouteRules(),r=rules[key];if(!r)return;
    if(!confirm(`Remover o bairro "${r.bairro}" e toda a sequência salva?`))return;
@@ -97,7 +102,10 @@ function openRouteEditor(key){
  $("editRouteSequence").value=(r.sequence||[]).join("\n");
  $("editRouteNoQuadra").checked=!!r.noQuadra;
  $("routeEditor").hidden=false;
- $("editRouteBairro").focus();
+ requestAnimationFrame(()=>{
+   $("routeEditor").scrollIntoView({behavior:"smooth",block:"center"});
+   $("editRouteBairro").focus();
+ });
 }
 function closeRouteEditor(){editingRouteKey="";$("routeEditor").hidden=true}
 function saveEditedRoute(){
