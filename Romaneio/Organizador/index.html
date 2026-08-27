@@ -5,12 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Romaneio • Rota do dia</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+#screenTracking{padding-bottom:90px}
+.trackingMap{height:430px;border-radius:16px;overflow:hidden;margin-top:12px}
+.trackingLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}
+.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
+.trackingDot{width:11px;height:11px;border-radius:50%;background:#9ca3af}
+.trackingDot.online{background:#16a34a}.trackingDot.recent{background:#f59e0b}
+.trackingGrow{flex:1}.trackingName{font-weight:800}.trackingDetail{font-size:13px;color:#66717d;margin-top:3px}
+.trackingBadge{font-size:11px;font-weight:800}.trackingOnline{color:#15803d}.trackingOffline{color:#b45309}.trackingOld{color:#6b7280}
+.trackingActions{display:flex;gap:8px;margin-top:12px}.trackingActions button{flex:1}
+#trackingMessage{font-size:13px;color:#66717d;margin-top:8px}
+</style>
 </head>
 <body>
 <header class="appHeader">
   <div class="brand">ROMANEIO</div>
   <div class="subtitle">Roteirização diária</div>
 </header>
+
 <main>
 <section id="screenRoute" class="screen activeScreen">
   <div class="hero card">
@@ -56,6 +70,33 @@
   <div id="routeViewList" class="routeViewList"></div>
 </section>
 
+<section id="screenTracking" class="screen">
+  <div class="card">
+    <div class="eyebrow">PAINEL DO PATRÃO</div>
+    <h1>🚚 Rastreamento</h1>
+    <p class="muted">Acompanhe os entregadores no mapa. Quando um celular ficar sem internet, mostramos a última posição recebida.</p>
+    <div class="trackingLegend">
+      <span>🟢 Online</span>
+      <span>🟠 Offline recente</span>
+      <span>⚪ Última posição antiga</span>
+    </div>
+    <div id="trackingMap" class="trackingMap"></div>
+    <div id="trackingMessage">Carregando entregadores...</div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">EQUIPE</div>
+    <h2>Entregadores</h2>
+    <div id="trackingDrivers"><span class="muted">Carregando...</span></div>
+  </div>
+
+  <div class="card">
+    <h2>🏍️ Modo entregador</h2>
+    <p class="muted">Abra a tela do entregador neste mesmo site para compartilhar a localização.</p>
+    <button id="openDriverMode" class="primary full">📍 Abrir modo entregador</button>
+  </div>
+</section>
+
 <section id="screenCadastro" class="screen">
   <div class="card">
     <div class="eyebrow">CADASTRO</div><h2>Bairros e sequências</h2>
@@ -86,10 +127,11 @@
 </section>
 </main>
 
-<nav class="bottomNav" style="grid-template-columns:repeat(4,1fr)">
+<nav class="bottomNav" style="grid-template-columns:repeat(5,1fr)">
   <button id="navRoute" class="navItem active">📋<span>Planilha</span></button>
   <button id="navView" class="navItem">🗺️<span>Visualizar</span></button>
   <button id="navPronta" class="navItem">📊<span>Planilha pronta</span></button>
+  <button id="navTracking" class="navItem">🚚<span>Rastreamento</span></button>
   <button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
 </nav>
 
@@ -97,29 +139,124 @@
 <script src="app.js"></script>
 <script src="app-fix-edit.js"></script>
 <script src="viewer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (()=> {
   const r=document.getElementById('screenRoute'),
         c=document.getElementById('screenCadastro'),
         v=document.getElementById('screenView'),
+        t=document.getElementById('screenTracking'),
         a=document.getElementById('navRoute'),
         b=document.getElementById('navCadastro'),
         n=document.getElementById('navView'),
-        p=document.getElementById('navPronta');
+        p=document.getElementById('navPronta'),
+        tr=document.getElementById('navTracking');
 
   function show(x){
-    [r,c,v].forEach(el=>el.classList.remove('activeScreen'));
-    const target=x==='route'?r:x==='cadastro'?c:v;
+    [r,c,v,t].forEach(el=>el.classList.remove('activeScreen'));
+    const target=x==='route'?r:x==='cadastro'?c:x==='view'?v:t;
     target.classList.add('activeScreen');
-    [a,b,n,p].forEach(el=>el.classList.remove('active'));
-    (x==='route'?a:x==='cadastro'?b:n).classList.add('active');
+    [a,b,n,p,tr].forEach(el=>el.classList.remove('active'));
+    (x==='route'?a:x==='cadastro'?b:x==='view'?n:tr).classList.add('active');
+    if(x==='tracking') loadTracking();
     scrollTo(0,0);
   }
 
   a.onclick=()=>show('route');
   b.onclick=()=>show('cadastro');
   n.onclick=()=>show('view');
+  tr.onclick=()=>show('tracking');
   p.onclick=()=>{ location.href='planilha-pronta.html'; };
+  document.getElementById('openDriverMode').onclick=()=>{ location.href='entregador.html'; };
+
+  let trackingMap=null, markers={};
+
+  function statusOf(x){
+    if(x.latitude==null || x.longitude==null)return 'Sem localização';
+    const stamp=x.ultima_atualizacao||x.updated_at;
+    const age=stamp?(Date.now()-new Date(stamp).getTime())/60000:99999;
+    if(x.status==='online' && age<3)return 'Online';
+    if(age<15)return 'Offline recente';
+    return 'Última posição antiga';
+  }
+
+  function iconFor(st){
+    const color=st==='Online'?'#16a34a':st==='Offline recente'?'#f59e0b':'#9ca3af';
+    return L.divIcon({
+      className:'',
+      html:'<div style="width:34px;height:34px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:17px">🏍️</div>',
+      iconSize:[34,34],
+      iconAnchor:[17,17]
+    });
+  }
+
+  async function loadTracking(){
+    if(!trackingMap){
+      trackingMap=L.map('trackingMap').setView([-9.65,-35.735],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19,
+        attribution:'© OpenStreetMap'
+      }).addTo(trackingMap);
+    }
+
+    const box=document.getElementById('trackingDrivers');
+    const msg=document.getElementById('trackingMessage');
+
+    try{
+      const cfg=window.ROMANEIO_SUPABASE;
+      if(!cfg||!cfg.url||!cfg.anonKey){
+        msg.textContent='Configuração do Supabase não encontrada.';
+        box.innerHTML='<span class="muted">Configure o Supabase para mostrar os entregadores.</span>';
+        return;
+      }
+
+      const sb=window.supabase.createClient(cfg.url,cfg.anonKey);
+      const {data,error}=await sb.from('entregadores_localizacao').select('*').order('updated_at',{ascending:false});
+
+      if(error)throw error;
+
+      box.innerHTML='';
+      (data||[]).forEach(x=>{
+        const st=statusOf(x);
+        const stamp=x.ultima_atualizacao||x.updated_at;
+        const age=stamp?Math.max(0,Math.round((Date.now()-new Date(stamp).getTime())/60000)):null;
+
+        if(x.latitude!=null&&x.longitude!=null){
+          const popup='<b>'+escapeHtml(x.nome||'Entregador')+'</b><br>'+st+'<br>'+(x.pedido_atual||'Sem pedido');
+          if(!markers[x.entregador_id]){
+            markers[x.entregador_id]=L.marker([x.latitude,x.longitude],{icon:iconFor(st)}).addTo(trackingMap).bindPopup(popup);
+          }else{
+            markers[x.entregador_id].setLatLng([x.latitude,x.longitude]).setIcon(iconFor(st)).setPopupContent(popup);
+          }
+        }
+
+        const div=document.createElement('div');
+        div.className='trackingDriver';
+        div.innerHTML='<span class="trackingDot '+(st==='Online'?'online':st==='Offline recente'?'recent':'')+'"></span><div class="trackingGrow"><div class="trackingName"></div><div class="trackingDetail"></div></div><span class="trackingBadge"></span>';
+        div.querySelector('.trackingName').textContent=x.nome||'Entregador';
+        div.querySelector('.trackingDetail').textContent=(x.pedido_atual?'Pedido '+x.pedido_atual+' • ':'')+(age===null?'sem atualização':'última atualização há '+age+' min');
+        div.querySelector('.trackingBadge').textContent=st.toUpperCase();
+        div.querySelector('.trackingBadge').className='trackingBadge '+(st==='Online'?'trackingOnline':st==='Offline recente'?'trackingOffline':'trackingOld');
+        box.appendChild(div);
+      });
+
+      msg.textContent=(data||[]).length+' entregador(es) cadastrado(s). Atualização automática a cada 30 segundos.';
+    }catch(e){
+      console.error(e);
+      msg.textContent='Não foi possível carregar o rastreamento.';
+      box.innerHTML='<span class="muted">Verifique o Supabase e a tabela entregadores_localizacao.</span>';
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  setInterval(()=>{
+    if(t.classList.contains('activeScreen'))loadTracking();
+  },30000);
 })();
 </script>
 </body>
