@@ -39,6 +39,7 @@
     <div id="unknownList"><span class="muted">Nenhum erro encontrado ainda.</span></div>
   </div>
 </section>
+
 <section id="screenView" class="screen">
   <div class="card routeHero">
     <div class="eyebrow">MINHA ROTA</div>
@@ -54,6 +55,7 @@
   </div>
   <div id="routeViewList" class="routeViewList"></div>
 </section>
+
 <section id="screenCadastro" class="screen">
   <div class="card">
     <div class="eyebrow">CADASTRO</div><h2>Bairros e sequências</h2>
@@ -71,7 +73,7 @@
   <div class="card">
     <div class="eyebrow">SALVOS</div><h2>Minhas regras</h2>
     <div id="routeRulesList" class="savedRules"></div>
-<div id="routeEditor" class="routeEditor" hidden>
+    <div id="routeEditor" class="routeEditor" hidden>
       <h3>Editar bairro + variações + sequência</h3>
       <label><b>Nome oficial</b></label><input id="editRouteBairro" type="text">
       <label><b>Variações</b></label><textarea id="editRouteAliases"></textarea>
@@ -83,15 +85,42 @@
   </div>
 </section>
 </main>
-<nav class="bottomNav"><button id="navRoute" class="navItem active">📋<span>Planilha</span></button><button id="navView" class="navItem">🗺️<span>Visualizar</span></button><button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button></nav>
+
+<nav class="bottomNav" style="grid-template-columns:repeat(4,1fr)">
+  <button id="navRoute" class="navItem active">📋<span>Planilha</span></button>
+  <button id="navView" class="navItem">🗺️<span>Visualizar</span></button>
+  <button id="navPronta" class="navItem">📊<span>Planilha pronta</span></button>
+  <button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
+</nav>
+
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 <script src="app-fix-edit.js"></script>
 <script src="viewer.js"></script>
 <script>
-(()=>{const r=document.getElementById('screenRoute'),c=document.getElementById('screenCadastro'),v=document.getElementById('screenView'),a=document.getElementById('navRoute'),b=document.getElementById('navCadastro'),n=document.getElementById('navView');
-function show(x){[r,c,v].forEach(el=>el.classList.remove('activeScreen'));const target=x==='route'?r:x==='cadastro'?c:v;target.classList.add('activeScreen');[a,b,n].forEach(el=>el.classList.remove('active'));(x==='route'?a:x==='cadastro'?b:n).classList.add('active');scrollTo(0,0)}
-a.onclick=()=>show('route');b.onclick=()=>show('cadastro');n.onclick=()=>show('view')})();
+(()=> {
+  const r=document.getElementById('screenRoute'),
+        c=document.getElementById('screenCadastro'),
+        v=document.getElementById('screenView'),
+        a=document.getElementById('navRoute'),
+        b=document.getElementById('navCadastro'),
+        n=document.getElementById('navView'),
+        p=document.getElementById('navPronta');
+
+  function show(x){
+    [r,c,v].forEach(el=>el.classList.remove('activeScreen'));
+    const target=x==='route'?r:x==='cadastro'?c:v;
+    target.classList.add('activeScreen');
+    [a,b,n,p].forEach(el=>el.classList.remove('active'));
+    (x==='route'?a:x==='cadastro'?b:n).classList.add('active');
+    scrollTo(0,0);
+  }
+
+  a.onclick=()=>show('route');
+  b.onclick=()=>show('cadastro');
+  n.onclick=()=>show('view');
+  p.onclick=()=>{ location.href='planilha-pronta.html'; };
+})();
 </script>
 </body>
 </html>
