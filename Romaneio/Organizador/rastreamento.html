@@ -1,1 +1,76 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio • Rastreamento</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17202a}header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;margin-top:4px;font-size:13px}main{max-width:900px;margin:auto;padding:14px 12px 90px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}.map{height:420px;border-radius:14px;overflow:hidden;position:relative;background:#dfe6e9}.grid{position:absolute;inset:0;background-image:linear-gradient(25deg,transparent 48%,#fff 49%,#fff 52%,transparent 53%),linear-gradient(90deg,transparent 47%,#fff 48%,#fff 51%,transparent 52%);background-size:130px 100px;transform:rotate(-8deg) scale(1.25)}.pin{position:absolute;width:48px;height:48px;border-radius:50% 50% 50% 8px;transform:rotate(-45deg);display:grid;place-items:center;background:#111827;box-shadow:0 4px 12px #0004}.pin span{transform:rotate(45deg);font-size:22px}.p1{left:23%;top:35%}.p2{left:55%;top:25%;background:#475569}.p3{left:72%;top:62%;background:#9ca3af}.tag{position:absolute;background:#fff;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:700;box-shadow:0 2px 8px #0002}.t1{left:20%;top:29%}.t2{left:52%;top:19%}.t3{left:68%;top:56%}.status{display:flex;gap:10px;align-items:center;margin:8px 0;padding:12px;border-bottom:1px solid #eee}.dot{width:10px;height:10px;border-radius:50%;background:#16a34a}.off{background:#f59e0b}.grow{flex:1}.name{font-weight:800}.detail{font-size:13px;color:#66717d;margin-top:3px}.badge{font-size:11px;font-weight:800}button{border:0;border-radius:11px;padding:12px 15px;font-weight:700;background:#111827;color:#fff}</style></head><body><header><div class="brand">ROMANEIO</div><div class="sub">Painel do patrão • Rastreamento dos entregadores</div></header><main><div class="card"><h2 style="margin-top:0">📍 Entregadores em tempo real</h2><p style="color:#66717d">Posição atual quando online e última posição conhecida quando estiver sem internet.</p><div class="map"><div class="grid"></div><div class="pin p1"><span>🏍️</span></div><div class="tag t1">João • EM ROTA</div><div class="pin p2"><span>🏍️</span></div><div class="tag t2">Carlos • EM ROTA</div><div class="pin p3"><span>🏍️</span></div><div class="tag t3">Pedro • OFFLINE</div></div></div><div class="card"><h2 style="margin-top:0">Equipe</h2><div class="status"><span class="dot"></span><div class="grow"><div class="name">João</div><div class="detail">Pedido #125 • localização atual</div></div><span class="badge">ONLINE</span></div><div class="status"><span class="dot"></span><div class="grow"><div class="name">Carlos</div><div class="detail">Pedido #128 • atualizado há 1 min</div></div><span class="badge">ONLINE</span></div><div class="status"><span class="dot off"></span><div class="grow"><div class="name">Pedro</div><div class="detail">Última localização recebida há 7 min</div></div><span class="badge">OFFLINE</span></div></div><div class="card"><button onclick="location.href='index.html'">← Voltar</button></div></main></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Romaneio • Rastreamento</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#17202a}
+header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}
+main{max-width:1000px;margin:auto;padding:14px 12px 80px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+#map{height:500px;border-radius:14px;overflow:hidden}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}.legend span{font-weight:700}
+.driver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}.grow{flex:1}.name{font-weight:800}.detail{font-size:13px;color:#66717d;margin-top:3px}.badge{font-size:11px;font-weight:800}.online{color:#15803d}.offline{color:#b45309}.old{color:#6b7280}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:6px}.dot.on{background:#16a34a}.dot.off{background:#f59e0b}
+button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;background:#111827;color:#fff}
+</style>
+</head>
+<body>
+<header><div class="brand">ROMANEIO</div><div class="sub">Painel do patrão • Rastreamento em tempo real</div></header>
+<main>
+<div class="card"><h2 style="margin-top:0">📍 Entregadores</h2><div class="legend"><span>🟢 Online</span><span>🟠 Offline recente</span><span>⚪ Última posição antiga</span></div><div id="map"></div></div>
+<div class="card"><h2 style="margin-top:0">Equipe</h2><div id="drivers">Carregando...</div></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(async()=>{
+const c=window.ROMANEIO_SUPABASE, sb=window.supabase.createClient(c.url,c.anonKey);
+const map=L.map("map").setView([-9.65,-35.735],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const markers={};
+let first=true;
+function statusOf(x){
+ if(!x.latitude||!x.longitude)return "Sem localização";
+ const age=(Date.now()-new Date(x.ultima_atualizacao||x.updated_at).getTime())/60000;
+ if(x.status==="online" && age<3)return "Online";
+ if(age<15)return "Offline recente";
+ return "Última posição antiga";
+}
+function iconFor(st){
+ const color=st==="Online"?"#16a34a":st==="Offline recente"?"#f59e0b":"#9ca3af";
+ return L.divIcon({className:"",html:'<div style="width:34px;height:34px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:17px">🏍️</div>',iconSize:[34,34],iconAnchor:[17,17]});
+}
+function render(data){
+ const list=document.getElementById("drivers");list.innerHTML="";
+ data.forEach(x=>{
+   const st=statusOf(x), when=x.ultima_atualizacao||x.updated_at;
+   if(x.latitude&&x.longitude){
+     const popup="<b>"+x.nome+"</b><br>"+st+"<br>"+(x.pedido_atual||"Sem pedido");
+     if(!markers[x.entregador_id]) markers[x.entregador_id]=L.marker([x.latitude,x.longitude],{icon:iconFor(st)}).addTo(map).bindPopup(popup);
+     else markers[x.entregador_id].setLatLng([x.latitude,x.longitude]).setIcon(iconFor(st)).setPopupContent(popup);
+     if(first){map.setView([x.latitude,x.longitude],14);first=false}
+   }
+   const age=when?Math.max(0,Math.round((Date.now()-new Date(when).getTime())/60000)):null;
+   const div=document.createElement("div");div.className="driver";
+   div.innerHTML='<span class="dot '+(st==="Online"?"on":st==="Offline recente"?"off":"")+'"></span><div class="grow"><div class="name"></div><div class="detail"></div></div><span class="badge '+(st==="Online"?"online":st==="Offline recente"?"offline":"old")+'"></span>';
+   div.querySelector(".name").textContent=x.nome;
+   div.querySelector(".detail").textContent=(x.pedido_atual?"Pedido "+x.pedido_atual+" • ":"")+(age===null?"sem atualização":"última atualização há "+age+" min");
+   div.querySelector(".badge").textContent=st.toUpperCase();
+   list.appendChild(div);
+ });
+}
+async function load(){
+ const {data,error}=await sb.from(c.table).select("*").order("updated_at",{ascending:false});
+ if(error){document.getElementById("drivers").textContent="Erro ao carregar rastreamento.";console.error(error);return}
+ render(data||[]);
+}
+await load();
+sb.channel("rastreamento-real")
+.on("postgres_changes",{event:"*",schema:"public",table:c.table},()=>load())
+.subscribe();
+setInterval(load,30000);
+})();
+</script>
+</body>
+</html>

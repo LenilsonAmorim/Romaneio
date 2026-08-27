@@ -1,1 +1,114 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Romaneio • Localização</title><style>body{margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#17202a}header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}main{max-width:600px;margin:auto;padding:14px}.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0001}button{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:800;background:#111827;color:#fff}.muted{color:#66717d;font-size:13px;line-height:1.5}.coords{font-family:monospace;background:#f1f3f5;border-radius:10px;padding:12px;word-break:break-all}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:6px}.on{background:#16a34a}</style></head><body><header><div class="brand">ROMANEIO</div><div class="sub">Modo entregador • compartilhamento de localização</div></header><main><div class="card"><h2>🏍️ Minha localização</h2><p class="muted">Mantenha esta tela aberta durante as entregas. O navegador solicitará permissão para usar o GPS.</p><button id="start">📍 Ativar localização</button><p id="msg" class="muted">Localização desativada.</p></div><div class="card"><div><span id="dot" class="dot"></span><b id="state">Aguardando</b></div><p class="muted">Última posição registrada:</p><div id="coords" class="coords">Nenhuma posição ainda.</div></div></main><script>let watchId=null;const $=id=>document.getElementById(id);$("start").onclick=()=>{if(!navigator.geolocation){$("msg").textContent="Este aparelho/navegador não oferece GPS.";return}if(watchId!==null)return;watchId=navigator.geolocation.watchPosition(pos=>{const lat=pos.coords.latitude.toFixed(6),lon=pos.coords.longitude.toFixed(6);$("coords").textContent="Latitude: "+lat+" | Longitude: "+lon;$("state").textContent="Localização ativa";$("dot").className="dot on";$("msg").textContent="GPS ativo. Precisão aproximada: "+Math.round(pos.coords.accuracy)+" m.";localStorage.setItem("ultima_localizacao",JSON.stringify({lat:Number(lat),lon:Number(lon),at:new Date().toISOString()}))},err=>{$("state").textContent="Não foi possível obter localização";$("msg").textContent=err.message},{enableHighAccuracy:true,maximumAge:10000,timeout:15000});$("start").textContent="📍 Localização ativada"};</script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Romaneio • GPS do entregador</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#17202a}
+header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}
+main{max-width:600px;margin:auto;padding:14px}.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+label{display:block;font-weight:700;margin:12px 0 6px}input{width:100%;padding:13px;border:1px solid #ccd3da;border-radius:10px;font-size:16px}
+button{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:800;background:#111827;color:#fff;margin-top:10px}
+button.stop{background:#b42318}.muted{color:#66717d;font-size:13px;line-height:1.5}.coords{font-family:monospace;background:#f1f3f5;border-radius:10px;padding:12px;word-break:break-word}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:7px}.on{background:#16a34a}.warn{background:#f59e0b}
+</style>
+</head>
+<body>
+<header><div class="brand">ROMANEIO</div><div class="sub">GPS do entregador</div></header>
+<main>
+<div class="card">
+<h2>🏍️ Identificação</h2>
+<label>Nome do entregador</label>
+<input id="nome" placeholder="Ex.: João">
+<label>ID do entregador</label>
+<input id="id" placeholder="Ex.: joao01">
+<label>Pedido atual (opcional)</label>
+<input id="pedido" placeholder="Ex.: #125">
+<button id="start">📍 Iniciar rastreamento</button>
+<button id="stop" class="stop" hidden>■ Parar rastreamento</button>
+<p id="msg" class="muted">Aguardando ativação.</p>
+</div>
+<div class="card">
+<div><span id="dot" class="dot"></span><b id="state">Offline</b></div>
+<p class="muted">Última posição:</p>
+<div id="coords" class="coords">Nenhuma posição enviada.</div>
+<p id="last" class="muted"></p>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+(()=>{
+let watchId=null,lastSent=0;
+const $=id=>document.getElementById(id);
+const saved=JSON.parse(localStorage.getItem("romaneio_entregador")||"{}");
+$("nome").value=saved.nome||"";
+$("id").value=saved.id||"";
+$("pedido").value=saved.pedido||"";
+
+function cfg(){return window.ROMANEIO_SUPABASE}
+function offlineSave(payload){
+  localStorage.setItem("ultima_localizacao",JSON.stringify(payload));
+}
+async function send(payload){
+  offlineSave(payload);
+  if(!navigator.onLine){$("msg").textContent="Sem internet. Posição salva neste aparelho e será reenviada quando a conexão voltar.";return}
+  try{
+    const c=cfg(), client=window.supabase.createClient(c.url,c.anonKey);
+    const {error}=await client.from(c.table).upsert(payload,{onConflict:"entregador_id"});
+    if(error)throw error;
+    $("msg").textContent="Localização enviada ao painel.";
+  }catch(e){
+    console.error(e);
+    $("msg").textContent="Não foi possível sincronizar agora. A última posição ficou salva localmente.";
+  }
+}
+function start(){
+  const nome=$("nome").value.trim(),id=$("id").value.trim();
+  if(!nome||!id){$("msg").textContent="Informe o nome e o ID do entregador.";return}
+  localStorage.setItem("romaneio_entregador",JSON.stringify({nome,id,pedido:$("pedido").value.trim()}));
+  if(!navigator.geolocation){$("msg").textContent="Este navegador não oferece GPS.";return}
+  if(watchId!==null)return;
+  watchId=navigator.geolocation.watchPosition(async pos=>{
+    const now=Date.now();
+    if(now-lastSent<8000)return;
+    lastSent=now;
+    const payload={
+      entregador_id:id,
+      nome:nome,
+      latitude:pos.coords.latitude,
+      longitude:pos.coords.longitude,
+      status:"online",
+      ultima_atualizacao:new Date().toISOString(),
+      pedido_atual:$("pedido").value.trim()||null,
+      updated_at:new Date().toISOString()
+    };
+    $("coords").textContent=payload.latitude.toFixed(6)+" , "+payload.longitude.toFixed(6);
+    $("last").textContent="Precisão aproximada: "+Math.round(pos.coords.accuracy)+" m";
+    $("state").textContent="Online";
+    $("dot").className="dot on";
+    await send(payload);
+  },err=>{
+    $("state").textContent="GPS indisponível";
+    $("dot").className="dot warn";
+    $("msg").textContent=err.message;
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+  $("start").hidden=true;$("stop").hidden=false;
+}
+function stop(){
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+  watchId=null;
+  const id=$("id").value.trim(),nome=$("nome").value.trim();
+  if(id){
+    send({entregador_id:id,nome:nome||id,status:"offline",ultima_atualizacao:new Date().toISOString(),updated_at:new Date().toISOString()});
+  }
+  $("state").textContent="Offline";$("dot").className="dot";$("start").hidden=false;$("stop").hidden=true;
+}
+$("start").onclick=start;$("stop").onclick=stop;
+window.addEventListener("online",()=>{$("msg").textContent="Internet voltou. Enviando próxima posição..."});
+window.addEventListener("offline",()=>{$("msg").textContent="Sem internet. O GPS continuará registrando a última posição disponível."});
+})();
+</script>
+</body>
+</html>
