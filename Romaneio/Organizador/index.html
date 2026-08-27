@@ -10,7 +10,7 @@
 #screenTracking{padding-bottom:90px}
 .trackingMap{height:430px;border-radius:16px;overflow:hidden;margin-top:12px}
 .trackingLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}
-.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
+.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}.trackingDriver:active{background:#f4f6f8}
 .trackingDot{width:11px;height:11px;border-radius:50%;background:#9ca3af}
 .trackingDot.online{background:#16a34a}.trackingDot.recent{background:#f59e0b}
 .trackingGrow{flex:1}.trackingName{font-weight:800}.trackingDetail{font-size:13px;color:#66717d;margin-top:3px}
@@ -239,6 +239,14 @@
         div.querySelector('.trackingDetail').textContent=(x.pedido_atual?'Pedido '+x.pedido_atual+' • ':'')+(age===null?'sem atualização':'última atualização há '+age+' min');
         div.querySelector('.trackingBadge').textContent=st.toUpperCase();
         div.querySelector('.trackingBadge').className='trackingBadge '+(st==='Online'?'trackingOnline':st==='Offline recente'?'trackingOffline':'trackingOld');
+        div.addEventListener('click',()=>{
+          if(x.latitude!=null&&x.longitude!=null){
+            trackingMap.setView([x.latitude,x.longitude],17);
+            if(markers[x.entregador_id]) markers[x.entregador_id].openPopup();
+          }else{
+            msg.textContent='Este entregador ainda não possui uma localização recebida.';
+          }
+        });
         box.appendChild(div);
       });
 
