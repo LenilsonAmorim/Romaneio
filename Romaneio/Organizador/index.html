@@ -7,16 +7,20 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-#screenTracking{padding-bottom:90px}
-.trackingMap{height:430px;border-radius:16px;overflow:hidden;margin-top:12px}
+.trackingMap{height:460px;border-radius:16px;overflow:hidden;margin-top:12px}
 .trackingLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}
-.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}.trackingDriver:active{background:#f4f6f8}
-.trackingDot{width:11px;height:11px;border-radius:50%;background:#9ca3af}
+.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}
+.trackingDriver:active{background:#f5f6f8}
+.trackingDot{width:11px;height:11px;border-radius:50%;background:#9ca3af;flex:none}
 .trackingDot.online{background:#16a34a}.trackingDot.recent{background:#f59e0b}
 .trackingGrow{flex:1}.trackingName{font-weight:800}.trackingDetail{font-size:13px;color:#66717d;margin-top:3px}
 .trackingBadge{font-size:11px;font-weight:800}.trackingOnline{color:#15803d}.trackingOffline{color:#b45309}.trackingOld{color:#6b7280}
-.trackingActions{display:flex;gap:8px;margin-top:12px}.trackingActions button{flex:1}
-#trackingMessage{font-size:13px;color:#66717d;margin-top:8px}
+.trackingMsg{font-size:13px;color:#66717d;margin-top:8px}
+.deliveryMarker{width:32px;height:32px;border-radius:50%;background:#111827;color:#fff;border:3px solid #fff;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:13px;font-weight:800}
+.deliveryMarker.done{background:#16a34a}.deliveryMarker.approx{background:#f59e0b}
+.deliveryList{margin-top:10px}.deliveryRow{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #eee}
+.deliveryNum{width:30px;height:30px;border-radius:50%;background:#111827;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.deliveryText{flex:1}.deliveryText b{display:block}.deliveryText small{color:#66717d}.approxText{color:#b45309!important}
 </style>
 </head>
 <body>
@@ -24,7 +28,6 @@
   <div class="brand">ROMANEIO</div>
   <div class="subtitle">Roteirização diária</div>
 </header>
-
 <main>
 <section id="screenRoute" class="screen activeScreen">
   <div class="hero card">
@@ -70,33 +73,6 @@
   <div id="routeViewList" class="routeViewList"></div>
 </section>
 
-<section id="screenTracking" class="screen">
-  <div class="card">
-    <div class="eyebrow">PAINEL DO PATRÃO</div>
-    <h1>🚚 Rastreamento</h1>
-    <p class="muted">Acompanhe os entregadores no mapa. Quando um celular ficar sem internet, mostramos a última posição recebida.</p>
-    <div class="trackingLegend">
-      <span>🟢 Online</span>
-      <span>🟠 Offline recente</span>
-      <span>⚪ Última posição antiga</span>
-    </div>
-    <div id="trackingMap" class="trackingMap"></div>
-    <div id="trackingMessage">Carregando entregadores...</div>
-  </div>
-
-  <div class="card">
-    <div class="eyebrow">EQUIPE</div>
-    <h2>Entregadores</h2>
-    <div id="trackingDrivers"><span class="muted">Carregando...</span></div>
-  </div>
-
-  <div class="card">
-    <h2>🏍️ Modo entregador</h2>
-    <p class="muted">Abra a tela do entregador neste mesmo site para compartilhar a localização.</p>
-    <button id="openDriverMode" class="primary full">📍 Abrir modo entregador</button>
-  </div>
-</section>
-
 <section id="screenCadastro" class="screen">
   <div class="card">
     <div class="eyebrow">CADASTRO</div><h2>Bairros e sequências</h2>
@@ -114,6 +90,11 @@
   <div class="card">
     <div class="eyebrow">SALVOS</div><h2>Minhas regras</h2>
     <div id="routeRulesList" class="savedRules"></div>
+    <div class="variationManager">
+      <div class="eyebrow">VARIAÇÕES SALVAS</div>
+      <p class="muted">Se uma variação foi associada ao bairro errado, corrija ou remova aqui.</p>
+      <div id="savedVariationsList" class="savedVariations"></div>
+    </div>
     <div id="routeEditor" class="routeEditor" hidden>
       <h3>Editar bairro + variações + sequência</h3>
       <label><b>Nome oficial</b></label><input id="editRouteBairro" type="text">
@@ -125,146 +106,213 @@
     </div>
   </div>
 </section>
+
+<section id="screenTracking" class="screen">
+  <div class="card">
+    <div class="eyebrow">PAINEL DO PATRÃO</div>
+    <h1>🚚 Rastreamento</h1>
+    <p class="muted">Entregadores e paradas da rota no mapa.</p>
+    <div class="trackingLegend"><span>🟢 Entregador online</span><span>🟠 última posição recente</span><span>⚪ posição antiga</span></div>
+    <div id="trackingMap" class="trackingMap"></div>
+    <div id="trackingMessage" class="trackingMsg">Carregando...</div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">ENTREGAS DA ROTA</div>
+    <h2>📍 Paradas numeradas</h2>
+    <p class="muted">As paradas usam endereço, bairro e a sequência/quadra da planilha. Quando o endereço não puder ser localizado exatamente, o ponto será marcado como aproximado.</p>
+    <div id="deliveryMap" class="trackingMap"></div>
+    <div id="deliveryMapMessage" class="trackingMsg">Carregando paradas...</div>
+    <div id="deliveryList" class="deliveryList"></div>
+  </div>
+
+  <div class="card">
+    <h2>👥 Entregadores</h2>
+    <div id="trackingDrivers"><span class="muted">Carregando...</span></div>
+  </div>
+
+  <div class="card">
+    <h2>🏍️ Modo entregador</h2>
+    <p class="muted">O entregador usa o GPS do aplicativo/site para enviar a posição.</p>
+    <button id="openDriverMode" class="primary full">📍 Abrir modo entregador</button>
+  </div>
+</section>
 </main>
 
-<nav class="bottomNav" style="grid-template-columns:repeat(5,1fr)">
-  <button id="navRoute" class="navItem active">📋<span>Planilha</span></button>
-  <button id="navView" class="navItem">🗺️<span>Visualizar</span></button>
-  <button id="navPronta" class="navItem">📊<span>Planilha pronta</span></button>
-  <button id="navTracking" class="navItem">🚚<span>Rastreamento</span></button>
-  <button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
+<nav class="bottomNav" style="grid-template-columns:repeat(4,1fr)">
+<button id="navRoute" class="navItem active">📋<span>Planilha</span></button>
+<button id="navView" class="navItem">🗺️<span>Visualizar</span></button>
+<button id="navTracking" class="navItem">🚚<span>Rastreamento</span></button>
+<button id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
 </nav>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
-<script src="app-fix-edit.js"></script>
 <script src="viewer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-(()=> {
-  const r=document.getElementById('screenRoute'),
-        c=document.getElementById('screenCadastro'),
-        v=document.getElementById('screenView'),
-        t=document.getElementById('screenTracking'),
-        a=document.getElementById('navRoute'),
-        b=document.getElementById('navCadastro'),
-        n=document.getElementById('navView'),
-        p=document.getElementById('navPronta'),
-        tr=document.getElementById('navTracking');
+(()=>{
+const screens={
+ route:document.getElementById('screenRoute'),
+ view:document.getElementById('screenView'),
+ cadastro:document.getElementById('screenCadastro'),
+ tracking:document.getElementById('screenTracking')
+};
+const navs={
+ route:document.getElementById('navRoute'),
+ view:document.getElementById('navView'),
+ tracking:document.getElementById('navTracking'),
+ cadastro:document.getElementById('navCadastro')
+};
+function show(name){
+ Object.values(screens).forEach(x=>x.classList.remove('activeScreen'));
+ screens[name].classList.add('activeScreen');
+ Object.values(navs).forEach(x=>x.classList.remove('active'));
+ navs[name].classList.add('active');
+ window.scrollTo(0,0);
+ if(name==='view' && typeof render==='function') render();
+ if(name==='tracking'){setTimeout(()=>{loadTracking();loadDeliveryMap();},150);}
+}
+navs.route.onclick=()=>show('route');
+navs.view.onclick=()=>show('view');
+navs.cadastro.onclick=()=>show('cadastro');
+navs.tracking.onclick=()=>show('tracking');
+document.getElementById('openDriverMode').onclick=()=>location.href='entregador.html';
 
-  function show(x){
-    [r,c,v,t].forEach(el=>el.classList.remove('activeScreen'));
-    const target=x==='route'?r:x==='cadastro'?c:x==='view'?v:t;
-    target.classList.add('activeScreen');
-    [a,b,n,p,tr].forEach(el=>el.classList.remove('active'));
-    (x==='route'?a:x==='cadastro'?b:x==='view'?n:tr).classList.add('active');
-    if(x==='tracking') loadTracking();
-    scrollTo(0,0);
-  }
+let trackingMap=null,deliveryMap=null,driverMarkers={},deliveryMarkers=[],geocodeCache={};
 
-  a.onclick=()=>show('route');
-  b.onclick=()=>show('cadastro');
-  n.onclick=()=>show('view');
-  tr.onclick=()=>show('tracking');
-  p.onclick=()=>{ location.href='planilha-pronta.html'; };
-  document.getElementById('openDriverMode').onclick=()=>{ location.href='entregador.html'; };
-
-  let trackingMap=null, markers={};
-
-  function statusOf(x){
-    if(x.latitude==null || x.longitude==null)return 'Sem localização';
-    const stamp=x.ultima_atualizacao||x.updated_at;
-    const age=stamp?(Date.now()-new Date(stamp).getTime())/60000:99999;
-    if(x.status==='online' && age<3)return 'Online';
-    if(age<15)return 'Offline recente';
-    return 'Última posição antiga';
-  }
-
-  function iconFor(st){
-    const color=st==='Online'?'#16a34a':st==='Offline recente'?'#f59e0b':'#9ca3af';
-    return L.divIcon({
-      className:'',
-      html:'<div style="width:34px;height:34px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:17px">🏍️</div>',
-      iconSize:[34,34],
-      iconAnchor:[17,17]
-    });
-  }
-
-  async function loadTracking(){
-    if(!trackingMap){
-      trackingMap=L.map('trackingMap').setView([-9.65,-35.735],13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-        maxZoom:19,
-        attribution:'© OpenStreetMap'
-      }).addTo(trackingMap);
+function escapeHtml(s){
+ return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function statusOf(x){
+ if(x.latitude==null||x.longitude==null)return 'Sem localização';
+ const stamp=x.ultima_atualizacao||x.updated_at;
+ const age=stamp?(Date.now()-new Date(stamp).getTime())/60000:99999;
+ if(x.status==='online'&&age<3)return 'Online';
+ if(age<15)return 'Offline recente';
+ return 'Última posição antiga';
+}
+function driverIcon(st){
+ const color=st==='Online'?'#16a34a':st==='Offline recente'?'#f59e0b':'#9ca3af';
+ return L.divIcon({className:'',html:'<div style="width:34px;height:34px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:17px">🏍️</div>',iconSize:[34,34],iconAnchor:[17,17]});
+}
+async function loadTracking(){
+ if(!trackingMap){
+  trackingMap=L.map('trackingMap').setView([-9.65,-35.735],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(trackingMap);
+ }
+ const box=document.getElementById('trackingDrivers'),msg=document.getElementById('trackingMessage');
+ try{
+  const cfg=window.ROMANEIO_SUPABASE;
+  if(!cfg||!cfg.url||!cfg.anonKey)throw new Error('Supabase não configurado');
+  const sb=window.supabase.createClient(cfg.url,cfg.anonKey);
+  const {data,error}=await sb.from(cfg.table||'entregadores_localizacao').select('*').order('updated_at',{ascending:false});
+  if(error)throw error;
+  box.innerHTML='';
+  (data||[]).forEach(x=>{
+   const st=statusOf(x),stamp=x.ultima_atualizacao||x.updated_at;
+   const age=stamp?Math.max(0,Math.round((Date.now()-new Date(stamp).getTime())/60000)):null;
+   if(x.latitude!=null&&x.longitude!=null){
+    const popup='<b>'+escapeHtml(x.nome||'Entregador')+'</b><br>'+st+'<br>'+(x.pedido_atual||'Sem pedido');
+    if(!driverMarkers[x.entregador_id])driverMarkers[x.entregador_id]=L.marker([x.latitude,x.longitude],{icon:driverIcon(st)}).addTo(trackingMap).bindPopup(popup);
+    else driverMarkers[x.entregador_id].setLatLng([x.latitude,x.longitude]).setIcon(driverIcon(st)).setPopupContent(popup);
+   }
+   const row=document.createElement('div');row.className='trackingDriver';
+   row.innerHTML='<span class="trackingDot '+(st==='Online'?'online':st==='Offline recente'?'recent':'')+'"></span><div class="trackingGrow"><div class="trackingName"></div><div class="trackingDetail"></div></div><span class="trackingBadge"></span>';
+   row.querySelector('.trackingName').textContent=x.nome||'Entregador';
+   row.querySelector('.trackingDetail').textContent=(x.pedido_atual?'Pedido '+x.pedido_atual+' • ':'')+(age===null?'sem atualização':'última atualização há '+age+' min');
+   row.querySelector('.trackingBadge').textContent=st.toUpperCase();
+   row.querySelector('.trackingBadge').className='trackingBadge '+(st==='Online'?'trackingOnline':st==='Offline recente'?'trackingOffline':'trackingOld');
+   row.onclick=()=>{
+    if(x.latitude!=null&&x.longitude!=null){
+     trackingMap.setView([x.latitude,x.longitude],17);
+     driverMarkers[x.entregador_id]?.openPopup();
     }
+   };
+   box.appendChild(row);
+  });
+  msg.textContent=(data||[]).length+' entregador(es) cadastrado(s). Toque no nome para ir até ele no mapa.';
+ }catch(e){
+  console.error(e);msg.textContent='Não foi possível carregar o rastreamento.';box.innerHTML='<span class="muted">Verifique o Supabase e a tabela entregadores_localizacao.</span>';
+ }
+}
 
-    const box=document.getElementById('trackingDrivers');
-    const msg=document.getElementById('trackingMessage');
-
-    try{
-      const cfg=window.ROMANEIO_SUPABASE;
-      if(!cfg||!cfg.url||!cfg.anonKey){
-        msg.textContent='Configuração do Supabase não encontrada.';
-        box.innerHTML='<span class="muted">Configure o Supabase para mostrar os entregadores.</span>';
-        return;
-      }
-
-      const sb=window.supabase.createClient(cfg.url,cfg.anonKey);
-      const {data,error}=await sb.from('entregadores_localizacao').select('*').order('updated_at',{ascending:false});
-
-      if(error)throw error;
-
-      box.innerHTML='';
-      (data||[]).forEach(x=>{
-        const st=statusOf(x);
-        const stamp=x.ultima_atualizacao||x.updated_at;
-        const age=stamp?Math.max(0,Math.round((Date.now()-new Date(stamp).getTime())/60000)):null;
-
-        if(x.latitude!=null&&x.longitude!=null){
-          const popup='<b>'+escapeHtml(x.nome||'Entregador')+'</b><br>'+st+'<br>'+(x.pedido_atual||'Sem pedido');
-          if(!markers[x.entregador_id]){
-            markers[x.entregador_id]=L.marker([x.latitude,x.longitude],{icon:iconFor(st)}).addTo(trackingMap).bindPopup(popup);
-          }else{
-            markers[x.entregador_id].setLatLng([x.latitude,x.longitude]).setIcon(iconFor(st)).setPopupContent(popup);
-          }
-        }
-
-        const div=document.createElement('div');
-        div.className='trackingDriver';
-        div.innerHTML='<span class="trackingDot '+(st==='Online'?'online':st==='Offline recente'?'recent':'')+'"></span><div class="trackingGrow"><div class="trackingName"></div><div class="trackingDetail"></div></div><span class="trackingBadge"></span>';
-        div.querySelector('.trackingName').textContent=x.nome||'Entregador';
-        div.querySelector('.trackingDetail').textContent=(x.pedido_atual?'Pedido '+x.pedido_atual+' • ':'')+(age===null?'sem atualização':'última atualização há '+age+' min');
-        div.querySelector('.trackingBadge').textContent=st.toUpperCase();
-        div.querySelector('.trackingBadge').className='trackingBadge '+(st==='Online'?'trackingOnline':st==='Offline recente'?'trackingOffline':'trackingOld');
-        div.addEventListener('click',()=>{
-          if(x.latitude!=null&&x.longitude!=null){
-            trackingMap.setView([x.latitude,x.longitude],17);
-            if(markers[x.entregador_id]) markers[x.entregador_id].openPopup();
-          }else{
-            msg.textContent='Este entregador ainda não possui uma localização recebida.';
-          }
-        });
-        box.appendChild(div);
-      });
-
-      msg.textContent=(data||[]).length+' entregador(es) cadastrado(s). Atualização automática a cada 30 segundos.';
-    }catch(e){
-      console.error(e);
-      msg.textContent='Não foi possível carregar o rastreamento.';
-      box.innerHTML='<span class="muted">Verifique o Supabase e a tabela entregadores_localizacao.</span>';
-    }
+function routeData(){
+ try{
+  const x=JSON.parse(localStorage.getItem('romaneio_last_route_view_v1')||'null');
+  return x&&Array.isArray(x.data)?x.data:[];
+ }catch(e){return []}
+}
+function finished(){
+ try{return JSON.parse(localStorage.getItem('romaneio_finished_stops_v1')||'[]')||[]}catch(e){return []}
+}
+function stopKey(x){return String(x.originalIndex??'')+'|'+String(x.numero??'')+'|'+String(x.endereco??'')}
+function geocodeKey(q){return q.trim().toLowerCase()}
+async function geocode(q){
+ const key=geocodeKey(q);if(geocodeCache[key])return geocodeCache[key];
+ try{
+  const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q='+encodeURIComponent(q);
+  const r=await fetch(u,{headers:{'Accept-Language':'pt-BR'}});
+  if(!r.ok)return null;const d=await r.json();if(!d.length)return null;
+  const p={lat:Number(d[0].lat),lng:Number(d[0].lon),display:d[0].display_name||''};
+  if(!Number.isFinite(p.lat)||!Number.isFinite(p.lng))return null;
+  geocodeCache[key]=p;return p;
+ }catch(e){return null}
+}
+async function locateStop(x){
+ const address=String(x.endereco||'').trim();
+ const bairro=String(x.bairro||'').trim();
+ const seq=String(x.sequencia||'').trim();
+ const queries=[
+  [address,bairro,seq,'Maceió, AL, Brasil'].filter(Boolean).join(', '),
+  [address,bairro,'Maceió, AL, Brasil'].filter(Boolean).join(', '),
+  [address,'Maceió, AL, Brasil'].filter(Boolean).join(', ')
+ ];
+ for(let i=0;i<queries.length;i++){
+  const p=await geocode(queries[i]);
+  if(p)return {point:p,approx:i>0,query:queries[i]};
+  await new Promise(r=>setTimeout(r,1100));
+ }
+ return null;
+}
+function deliveryIcon(num,approx,done){
+ const cls=done?'done':approx?'approx':'';
+ return L.divIcon({className:'',html:'<div class="deliveryMarker '+cls+'">'+escapeHtml(num)+'</div>',iconSize:[32,32],iconAnchor:[16,16]});
+}
+async function loadDeliveryMap(){
+ const msg=document.getElementById('deliveryMapMessage'),list=document.getElementById('deliveryList');
+ const data=routeData();
+ if(!deliveryMap){
+  deliveryMap=L.map('deliveryMap').setView([-9.65,-35.735],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(deliveryMap);
+ }
+ deliveryMarkers.forEach(m=>deliveryMap.removeLayer(m));deliveryMarkers=[];
+ list.innerHTML='';
+ if(!data.length){msg.textContent='Nenhuma rota analisada. Carregue a planilha primeiro.';return}
+ const done=finished(),bounds=[];
+ msg.textContent='Localizando as '+data.length+' paradas...';
+ for(let i=0;i<data.length;i++){
+  const x=data[i],num=x.numero||String(i+1),address=x.endereco||'Endereço não informado',isDone=done.includes(stopKey(x));
+  const found=await locateStop(x);
+  const row=document.createElement('div');row.className='deliveryRow';
+  row.innerHTML='<div class="deliveryNum">'+escapeHtml(num)+'</div><div class="deliveryText"><b></b><small></small></div>';
+  row.querySelector('b').textContent=address;
+  row.querySelector('small').textContent=(x.bairro||'')+(x.sequencia?' • Quadra/sequência: '+x.sequencia:'')+(found&&found.approx?' • localização aproximada':'');
+  if(found){
+   const m=L.marker([found.point.lat,found.point.lng],{icon:deliveryIcon(num,found.approx,isDone)}).addTo(deliveryMap);
+   m.bindPopup('<b>Parada '+escapeHtml(num)+'</b><br>'+escapeHtml(address)+(x.bairro?'<br>'+escapeHtml(x.bairro):'')+(x.sequencia?'<br>Quadra/sequência: '+escapeHtml(x.sequencia):'')+'<br><strong>'+(isDone?'✓ Entregue':'⏳ Pendente')+'</strong>'+(found.approx?'<br><span style="color:#b45309">Localização aproximada</span>':''));
+   deliveryMarkers.push(m);bounds.push([found.point.lat,found.point.lng]);
+   row.onclick=()=>{deliveryMap.setView([found.point.lat,found.point.lng],17);m.openPopup()};
   }
+  list.appendChild(row);
+ }
+ if(bounds.length)deliveryMap.fitBounds(bounds,{padding:[25,25]});
+ msg.textContent=deliveryMarkers.length+' de '+data.length+' parada(s) localizadas. Pontos amarelos são aproximações; a quadra só fica exata se houver coordenada correspondente.';
+}
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  }
-
-  setInterval(()=>{
-    if(t.classList.contains('activeScreen'))loadTracking();
-  },30000);
+setInterval(()=>{if(screens.tracking.classList.contains('activeScreen')){loadTracking();loadDeliveryMap()}},30000);
 })();
 </script>
 </body>
