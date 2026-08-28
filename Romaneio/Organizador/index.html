@@ -5,11 +5,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Romaneio • Rota do dia</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+.trackingMap{height:460px;border-radius:16px;overflow:hidden;margin-top:12px}
+.trackingLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}
+.trackingDriver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}
+.trackingDot{width:11px;height:11px;border-radius:50%;background:#9ca3af;flex:none}
+.trackingGrow{flex:1}.trackingName{font-weight:800}.trackingDetail{font-size:13px;color:#66717d;margin-top:3px}
+.trackingBadge{font-size:11px;font-weight:800}.trackingMsg{font-size:13px;color:#66717d;margin-top:8px}
+.deliveryMarker{width:32px;height:32px;border-radius:50%;color:#fff;border:3px solid #fff;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:13px;font-weight:800}
+.deliveryMarker.done{opacity:.65;background:#16a34a!important}
+.deliveryList{margin-top:10px}.deliveryRow{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #eee}
+.deliveryNum{width:30px;height:30px;border-radius:50%;color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.deliveryText{flex:1}.deliveryText b{display:block}.deliveryText small{color:#66717d}
+</style>
 </head>
 <body>
 <header class="appHeader">
   <div class="brand">ROMANEIO</div>
   <div class="subtitle">Roteirização diária</div>
+  <button id="topPlanilhaPronta" type="button" style="margin-top:12px;width:100%;border:0;border-radius:12px;padding:12px 14px;background:#fff;color:#111827;font-weight:800;font-size:15px;cursor:pointer">📋 Planilha pronta</button>
 </header>
 <main>
 <section id="screenRoute" class="screen activeScreen">
@@ -89,15 +104,82 @@
     </div>
   </div>
 </section>
+
+<section id="screenTracking" class="screen">
+  <div class="card">
+    <div class="eyebrow">PAINEL DO PATRÃO</div>
+    <h1>🚚 Rastreamento da rota</h1>
+    <p class="muted">Um único mapa com entregadores e todas as paradas. Cada entregador e as paradas dele usam a mesma cor.</p>
+    <div id="trackingLegend" class="trackingLegend"></div>
+    <div id="trackingMap" class="trackingMap"></div>
+    <div id="trackingMessage" class="trackingMsg">Carregando mapa...</div>
+  </div>
+  <div class="card">
+    <h2>👥 Entregadores</h2>
+    <p class="muted">Toque no nome para centralizar o mapa no entregador e mostrar a rota/paradas dele.</p>
+    <div id="trackingDrivers"><span class="muted">Carregando...</span></div>
+  </div>
+  <div class="card">
+    <h2>📍 Paradas da rota</h2>
+    <p class="muted">Os números representam a ordem das entregas. Toque em uma parada para ver o endereço.</p>
+    <div id="deliveryList" class="deliveryList"></div>
+  </div>
+  <div class="card">
+    <h2>🏍️ Modo entregador</h2>
+    <p class="muted">O entregador usa o GPS do aplicativo/site para enviar a posição.</p>
+    <button id="openDriverMode" type="button" class="primary full">📍 Abrir modo entregador</button>
+  </div>
+</section>
 </main>
-<nav class="bottomNav">
+
+<nav class="bottomNav" style="grid-template-columns:repeat(4,1fr)">
   <button type="button" id="navRoute" class="navItem active">📋<span>Planilha</span></button>
   <button type="button" id="navView" class="navItem">🗺️<span>Visualizar</span></button>
+  <button type="button" id="navTracking" class="navItem">🚚<span>Rastreamento</span></button>
   <button type="button" id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
 </nav>
+
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 <script src="viewer.js"></script>
-  <script src="navigation-fix.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="navigation-fix.js"></script>
+<script>
+(function(){
+  function init(){
+    const screens={
+      route:document.getElementById('screenRoute'),
+      view:document.getElementById('screenView'),
+      tracking:document.getElementById('screenTracking'),
+      cadastro:document.getElementById('screenCadastro')
+    };
+    const navs={
+      route:document.getElementById('navRoute'),
+      view:document.getElementById('navView'),
+      tracking:document.getElementById('navTracking'),
+      cadastro:document.getElementById('navCadastro')
+    };
+    function show(name){
+      Object.keys(screens).forEach(k=>{if(screens[k])screens[k].classList.toggle('activeScreen',k===name)});
+      Object.keys(navs).forEach(k=>{if(navs[k])navs[k].classList.toggle('active',k===name)});
+      window.scrollTo(0,0);
+      if(name==='view' && typeof window.render==='function')window.render();
+      if(name==='tracking')setTimeout(()=>{if(typeof window.loadTracking==='function')window.loadTracking();if(typeof window.loadDeliveryMap==='function')window.loadDeliveryMap()},150);
+    }
+    Object.keys(navs).forEach(name=>{
+      if(!navs[name])return;
+      navs[name].type='button';
+      navs[name].onclick=function(e){e.preventDefault();e.stopImmediatePropagation();show(name);return false};
+    });
+    const pronto=document.getElementById('topPlanilhaPronta');
+    if(pronto)pronto.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();location.href='planilha-pronta.html';return false};
+    const entregador=document.getElementById('openDriverMode');
+    if(entregador)entregador.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();location.href='entregador.html';return false};
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body>
 </html>
