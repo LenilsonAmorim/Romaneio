@@ -84,11 +84,11 @@ function showError(msg){
   $('error').textContent=msg||'';
 }
 function configured(){
-  const c=window.ROMANEIO_SUPABASE||{};
+  const c=window.ROMANEIO_PLANILHA_SUPABASE||{};
   return !!(c.url&&c.anonKey&&window.supabase);
 }
 function config(){
-  const c=window.ROMANEIO_SUPABASE||{};
+  const c=window.ROMANEIO_PLANILHA_SUPABASE||{};
   return {
     url:c.url||'',
     anonKey:c.anonKey||'',
