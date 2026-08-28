@@ -5,7 +5,6 @@ window.ROMANEIO_SUPABASE = {
 };
 
 // Configuração separada da Planilha Pronta.
-// O rastreamento continua usando ROMANEIO_SUPABASE acima.
 window.ROMANEIO_PLANILHA_SUPABASE = {
   url: 'https://kfjalmwlbgayyogiaanx.supabase.co',
   anonKey: 'sb_publishable_GXokf74ebXiWSQpv6iuWrg_DfY0cPfH',
@@ -13,8 +12,8 @@ window.ROMANEIO_PLANILHA_SUPABASE = {
   rotaId: 'rota-principal'
 };
 
-// O restante do arquivo de sincronização do Cadastro permanece igual.
-// Este bloco é carregado pelo site para sincronizar as regras salvas.
+// Sincronização das regras do Cadastro com o Supabase.
+// IMPORTANTE: não recarrega a página ao receber os dados remotos.
 (function () {
   const RULES_KEY = 'romaneio_route_rules_v2';
   const FIXES_KEY = 'romaneio_address_fixes_v1';
@@ -42,59 +41,78 @@ window.ROMANEIO_PLANILHA_SUPABASE = {
   async function pullRemote() {
     const { data, error } = await client.from('romaneio_config')
       .select('id,route_rules,address_fixes,updated_at')
-      .eq('id', ROW_ID).maybeSingle();
+      .eq('id', ROW_ID)
+      .maybeSingle();
 
-    if (error) { console.warn('[Romaneio] Config:', error.message); ready = true; return false; }
+    if (error) {
+      console.warn('[Romaneio] Config:', error.message);
+      ready = true;
+      return false;
+    }
 
     if (data && (data.route_rules || data.address_fixes)) {
       syncing = true;
-      localStorage.setItem(RULES_KEY, JSON.stringify(data.route_rules || {}));
-      localStorage.setItem(FIXES_KEY, JSON.stringify(data.address_fixes || {}));
-      localStorage.setItem(SYNC_KEY, String(Date.now()));
-      syncing = false;
-      if (!sessionStorage.getItem('romaneio_rules_reloaded')) {
-        sessionStorage.setItem('romaneio_rules_reloaded', '1');
-        location.reload();
-        return true;
+      try {
+        localStorage.setItem(RULES_KEY, JSON.stringify(data.route_rules || {}));
+        localStorage.setItem(FIXES_KEY, JSON.stringify(data.address_fixes || {}));
+        localStorage.setItem(SYNC_KEY, String(Date.now()));
+      } finally {
+        syncing = false;
       }
+
+      // Não usar location.reload().
+      // Atualizamos os dados sem reiniciar a página, preservando
+      // a tela atual e evitando o loop de atualização.
     }
+
     ready = true;
     return false;
   }
 
   async function pushRemote() {
     if (syncing || !ready) return;
+
     const local = readLocal();
+
     const { error } = await client.from('romaneio_config').upsert({
       id: ROW_ID,
       route_rules: local.rules,
       address_fixes: local.fixes,
       updated_at: new Date().toISOString()
     }, { onConflict: 'id' });
-    if (error) console.warn('[Romaneio] Falha ao salvar configurações:', error.message);
+
+    if (error) {
+      console.warn('[Romaneio] Falha ao salvar configurações:', error.message);
+    }
   }
 
   const originalSet = localStorage.setItem.bind(localStorage);
+
   localStorage.setItem = function (key, value) {
     originalSet(key, value);
-    if (ready && (key === RULES_KEY || key === FIXES_KEY)) {
+
+    if (ready && !syncing && (key === RULES_KEY || key === FIXES_KEY)) {
       clearTimeout(window.__romaneioRulesSyncTimer);
       window.__romaneioRulesSyncTimer = setTimeout(pushRemote, 350);
     }
   };
 
   const originalRemove = localStorage.removeItem.bind(localStorage);
+
   localStorage.removeItem = function (key) {
     originalRemove(key);
-    if (ready && (key === RULES_KEY || key === FIXES_KEY)) {
+
+    if (ready && !syncing && (key === RULES_KEY || key === FIXES_KEY)) {
       clearTimeout(window.__romaneioRulesSyncTimer);
       window.__romaneioRulesSyncTimer = setTimeout(pushRemote, 350);
     }
   };
 
-  pullRemote().then(() => {
+  pullRemote().then(function () {
     ready = true;
     pushRemote();
-    sessionStorage.removeItem('romaneio_rules_reloaded');
+  }).catch(function (err) {
+    ready = true;
+    console.warn('[Romaneio] Erro na sincronização:', err);
   });
 })();
