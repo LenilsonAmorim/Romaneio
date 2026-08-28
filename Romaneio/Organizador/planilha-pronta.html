@@ -5,21 +5,31 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Planilha pronta • Rota do dia</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}
 header{background:#111827;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
 header b{font-size:22px}header small{display:block;opacity:.8;margin-top:4px}
-main{max-width:760px;margin:auto;padding:14px 12px 90px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+main{max-width:760px;margin:auto;padding:14px 12px 90px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
 input[type=file]{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;background:#fff}
-button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:700;min-height:44px}.primary{background:#111827;color:#fff}.secondary{background:#e9edf1;color:#17202a}
-.actions{display:flex;gap:8px;margin-top:12px}.actions button{flex:1}.status,.hint{font-size:14px;color:#66717d;margin-top:9px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{text-align:center;background:#f1f3f5;padding:10px;border-radius:10px}.stat b{display:block;font-size:22px}
+button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:700;min-height:44px}
+.primary{background:#111827;color:#fff}.secondary{background:#e9edf1;color:#17202a}
+.actions{display:flex;gap:8px;margin-top:12px}.actions button{flex:1}
+.status,.hint{font-size:14px;color:#66717d;margin-top:9px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{text-align:center;background:#f1f3f5;padding:10px;border-radius:10px}.stat b{display:block;font-size:22px}
 .progress{height:8px;background:#e5e9ed;border-radius:10px;margin-top:12px}.bar{height:100%;background:#111827;width:0}
-.row{padding:12px 0;border-bottom:1px solid #e7eaed}.row.done{opacity:.48}.top{display:flex;gap:10px;align-items:flex-start}
+.row{padding:12px 0;border-bottom:1px solid #e7eaed}.row.done{opacity:.48}
+.top{display:flex;gap:10px;align-items:flex-start}
 .handle{width:42px;min-width:42px;height:42px;border-radius:10px;background:#eef1f4;display:grid;place-items:center;font-size:20px;touch-action:none}
-.seq{width:62px;min-width:62px;font-weight:800;font-size:16px;padding-top:9px}.addr{flex:1;font-size:17px;font-weight:800;word-break:break-word;padding-top:9px}
-.rowActions{display:flex;gap:7px;margin:9px 0 0 52px}.rowActions button{flex:1}.dragging{opacity:.3}.over{border-top:3px solid #111827}
+.seq{width:62px;min-width:62px;font-weight:800;font-size:16px;padding-top:9px}
+.addr{flex:1;font-size:17px;font-weight:800;word-break:break-word;padding-top:9px}
+.rowActions{display:flex;gap:7px;margin:9px 0 0 52px}.rowActions button{flex:1}
+.dragging{opacity:.3}.over{border-top:3px solid #111827}
 .tableHead{display:grid;grid-template-columns:42px 72px 1fr;gap:10px;font-size:12px;font-weight:800;color:#66717d;padding-bottom:8px;border-bottom:1px solid #ddd}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;margin-top:8px}.dot{width:9px;height:9px;border-radius:50%;background:#9ca3af}.dot.on{background:#16a34a}.dot.warn{background:#dc2626}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;margin-top:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:#9ca3af}.dot.on{background:#16a34a}.dot.warn{background:#dc2626}
+.error{background:#fee2e2;color:#991b1b;padding:10px;border-radius:10px;margin-top:10px;font-weight:700}
 </style>
 </head>
 <body>
@@ -28,16 +38,24 @@ button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:
 <section class="card">
 <h2>📋 Adicionar planilha</h2>
 <p>Somente duas colunas: <b>sequence</b> e <b>endereços</b>. Cada linha representa 1 endereço.</p>
-<input id="file" type="file" accept=".xlsx,.xls,.csv">
+<input id="file" type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
 <div id="status" class="status">Nenhuma planilha carregada.</div>
-<div class="live"><span id="liveDot" class="dot"></span><span id="liveText">Conectando ao Supabase...</span></div>
+<div class="live"><span id="liveDot" class="dot"></span><span id="liveText">Pronto para carregar.</span></div>
+<div id="error" class="error" hidden></div>
 </section>
 
 <section id="summary" class="card" hidden>
-<div class="stats"><div class="stat"><b id="total">0</b>Total</div><div class="stat"><b id="left">0</b>Restantes</div><div class="stat"><b id="done">0</b>Entregues</div></div>
+<div class="stats">
+<div class="stat"><b id="total">0</b>Total</div>
+<div class="stat"><b id="left">0</b>Restantes</div>
+<div class="stat"><b id="done">0</b>Entregues</div>
+</div>
 <div class="progress"><div id="bar" class="bar"></div></div>
-<div class="actions"><button id="undoAll" class="secondary">↩ Desfazer tudo</button><button id="finishAll" class="primary">✓ Finalizar rota</button></div>
-<p class="hint">Pressione e segure ⋮⋮ para arrastar uma linha. As alterações são enviadas ao Supabase.</p>
+<div class="actions">
+<button id="undoAll" class="secondary" type="button">↩ Desfazer tudo</button>
+<button id="finishAll" class="primary" type="button">✓ Finalizar rota</button>
+</div>
+<p class="hint">Pressione e segure ⋮⋮ para arrastar uma linha. As alterações são salvas neste aparelho e, quando o Supabase estiver configurado, também são sincronizadas.</p>
 </section>
 
 <section id="listCard" class="card" hidden>
@@ -50,93 +68,273 @@ button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
-(()=> {
+(()=>{
 let rows=[],done=[],hold=null,dragging=false,dragFrom=-1;
 let sb=null,channel=null,saveTimer=null,applyingRemote=false;
-const $=id=>document.getElementById(id), text=v=>String(v??'').trim();
+
+const $=id=>document.getElementById(id);
+const text=v=>String(v??'').trim();
 
 function setLive(kind,msg){
- $('liveDot').className='dot '+(kind==='on'?'on':kind==='warn'?'warn':'');
- $('liveText').textContent=msg;
+  $('liveDot').className='dot '+(kind==='on'?'on':kind==='warn'?'warn':'');
+  $('liveText').textContent=msg;
+}
+function showError(msg){
+  $('error').hidden=!msg;
+  $('error').textContent=msg||'';
 }
 function configured(){
- const c=window.ROMANEIO_SUPABASE||{};
- return c.url && c.anonKey && window.supabase;
+  const c=window.ROMANEIO_SUPABASE||{};
+  return !!(c.url&&c.anonKey&&window.supabase);
+}
+function config(){
+  const c=window.ROMANEIO_SUPABASE||{};
+  return {
+    url:c.url||'',
+    anonKey:c.anonKey||'',
+    table:c.table||'romaneio_pronta',
+    rotaId:c.rotaId||'rota-principal'
+  };
+}
+function localSave(){
+  try{
+    localStorage.setItem('romaneio_pronta_cache',JSON.stringify({rows,done}));
+  }catch(e){}
+}
+function loadLocal(){
+  try{
+    const x=JSON.parse(localStorage.getItem('romaneio_pronta_cache')||'null');
+    if(x&&Array.isArray(x.rows)){
+      rows=x.rows.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
+      done=rows.map((_,i)=>Boolean(x.done?.[i]));
+      showLoaded('Rota recuperada deste aparelho.');
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+function showLoaded(msg){
+  $('status').textContent=msg;
+  $('summary').hidden=false;
+  $('listCard').hidden=false;
+  showError('');
+  render();
 }
 async function initSupabase(){
- if(!configured()){setLive('warn','Supabase ainda não configurado');loadLocal();return}
- const c=window.ROMANEIO_SUPABASE;
- try{
-  sb=window.supabase.createClient(c.url,c.anonKey);
-  const {data,error}=await sb.from(c.table).select('id,dados,updated_at').eq('id',c.rotaId).maybeSingle();
-  if(error)throw error;
-  if(data && Array.isArray(data.dados)){rows=data.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));done=data.dados.map(r=>Boolean(r.done));showLoaded('Rota sincronizada • '+rows.length+' endereços.')}
-  else loadLocal();
-  subscribe();
- }catch(e){console.error(e);setLive('warn','Supabase não conectado; usando cópia deste aparelho');loadLocal()}
+  if(!configured()){
+    setLive('warn','Modo local ativo');
+    loadLocal();
+    return;
+  }
+  const c=config();
+  try{
+    sb=window.supabase.createClient(c.url,c.anonKey);
+    const {data,error}=await sb.from(c.table).select('id,dados,updated_at').eq('id',c.rotaId).maybeSingle();
+    if(error)throw error;
+    if(data&&Array.isArray(data.dados)){
+      rows=data.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
+      done=data.dados.map(r=>Boolean(r.done));
+      localSave();
+      showLoaded('Rota sincronizada • '+rows.length+' endereços.');
+    }else{
+      loadLocal();
+    }
+    subscribe();
+  }catch(e){
+    console.error(e);
+    setLive('warn','Supabase indisponível; usando este aparelho');
+    loadLocal();
+  }
 }
 function subscribe(){
- const c=window.ROMANEIO_SUPABASE;
- if(channel)sb.removeChannel(channel);
- channel=sb.channel('romaneio-rota-'+c.rotaId)
- .on('postgres_changes',{event:'*',schema:'public',table:c.table,filter:'id=eq.'+c.rotaId},payload=>{
-   if(applyingRemote)return;
-   const d=payload.new;
-   if(d&&Array.isArray(d.dados)){
-    rows=d.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
-    done=d.dados.map(r=>Boolean(r.done));
-    localSave();showLoaded('Atualizado em tempo real • '+rows.length+' endereços.');
-   }
- }).subscribe(status=>setLive(status==='SUBSCRIBED'?'on':'warn',status==='SUBSCRIBED'?'Sincronizado em tempo real':'Reconectando...'));
+  if(!sb)return;
+  const c=config();
+  if(channel)sb.removeChannel(channel);
+  channel=sb.channel('romaneio-rota-'+c.rotaId)
+    .on('postgres_changes',{event:'*',schema:'public',table:c.table,filter:'id=eq.'+c.rotaId},payload=>{
+      if(applyingRemote)return;
+      const d=payload.new;
+      if(d&&Array.isArray(d.dados)){
+        rows=d.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
+        done=d.dados.map(r=>Boolean(r.done));
+        localSave();
+        showLoaded('Atualizado em tempo real • '+rows.length+' endereços.');
+      }
+    })
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED')setLive('on','Sincronizado em tempo real');
+      else setLive('warn','Reconectando...');
+    });
 }
-function localSave(){try{localStorage.setItem('romaneio_pronta_cache',JSON.stringify({rows,done}))}catch(e){}}
-function loadLocal(){try{const x=JSON.parse(localStorage.getItem('romaneio_pronta_cache')||'null');if(x&&Array.isArray(x.rows)){rows=x.rows;done=rows.map((_,i)=>Boolean(x.done?.[i]));showLoaded('Rota recuperada deste aparelho.')}}catch(e){}}
-function showLoaded(msg){$('status').textContent=msg;$('summary').hidden=false;$('listCard').hidden=false;render()}
 async function sync(){
- localSave();render();
- if(!sb||applyingRemote)return;
- const c=window.ROMANEIO_SUPABASE;
- clearTimeout(saveTimer);
- saveTimer=setTimeout(async()=>{
-  const dados=rows.map((r,i)=>({sequence:r.sequence,address:r.address,done:Boolean(done[i])}));
-  applyingRemote=true;
-  const {error}=await sb.from(c.table).upsert({id:c.rotaId,dados,updated_at:new Date().toISOString()});
-  applyingRemote=false;
-  if(error){console.error(error);setLive('warn','Não foi possível sincronizar agora')}
- },120);
+  localSave();
+  render();
+  if(!sb||applyingRemote)return;
+  const c=config();
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    const dados=rows.map((r,i)=>({sequence:r.sequence,address:r.address,done:Boolean(done[i])}));
+    applyingRemote=true;
+    const {error}=await sb.from(c.table).upsert({
+      id:c.rotaId,
+      dados,
+      updated_at:new Date().toISOString()
+    });
+    applyingRemote=false;
+    if(error){
+      console.error(error);
+      setLive('warn','Não foi possível sincronizar agora');
+    }
+  },150);
+}
+function normalizeHeader(v){
+  return text(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 function load(file){
- const fr=new FileReader();
- fr.onload=e=>{try{
-  const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];
-  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  if(!raw.length){$('status').textContent='A planilha está vazia.';return}
-  const h=raw[0].map(v=>text(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''));
-  const start=h.includes('sequence')&&h.includes('enderecos')?1:0;
-  rows=raw.slice(start).map(r=>({sequence:text(r[0]),address:text(r[1])})).filter(r=>r.sequence||r.address);
-  done=rows.map(()=>false);showLoaded(file.name+' • '+rows.length+' endereços carregados.');sync();
- }catch(err){console.error(err);$('status').textContent='Não foi possível ler a planilha.'}};
- fr.readAsArrayBuffer(file);
+  showError('');
+  if(!window.XLSX){
+    showError('O leitor de planilhas ainda não carregou. Verifique a internet e tente novamente.');
+    return;
+  }
+  const fr=new FileReader();
+  fr.onerror=()=>showError('Não foi possível abrir o arquivo selecionado.');
+  fr.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      if(!wb.SheetNames.length)throw new Error('Nenhuma aba encontrada.');
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!raw.length){
+        $('status').textContent='A planilha está vazia.';
+        $('summary').hidden=true;$('listCard').hidden=true;
+        return;
+      }
+
+      const headers=raw[0].map(normalizeHeader);
+      let seqCol=headers.indexOf('sequence');
+      let addrCol=headers.indexOf('enderecos');
+
+      if(addrCol<0)addrCol=headers.indexOf('endereco');
+      if(addrCol<0)addrCol=headers.indexOf('endereços');
+
+      const hasHeader=seqCol>=0&&addrCol>=0;
+      if(!hasHeader){
+        seqCol=0;addrCol=1;
+      }
+
+      const start=hasHeader?1:0;
+      rows=raw.slice(start).map(r=>({
+        sequence:text(r[seqCol]),
+        address:text(r[addrCol])
+      })).filter(r=>r.sequence||r.address);
+
+      if(!rows.length){
+        $('status').textContent='Nenhuma entrega encontrada na planilha.';
+        $('summary').hidden=true;$('listCard').hidden=true;
+        return;
+      }
+
+      done=rows.map(()=>false);
+      showLoaded(file.name+' • '+rows.length+' endereços carregados.');
+      sync();
+    }catch(err){
+      console.error(err);
+      showError('Não foi possível ler essa planilha. Use XLSX, XLS ou CSV com sequence e endereços.');
+    }
+  };
+  fr.readAsArrayBuffer(file);
 }
-function move(from,to){if(from===to||from<0||to<0||to>=rows.length)return;const r=rows.splice(from,1)[0],d=done.splice(from,1)[0];rows.splice(to,0,r);done.splice(to,0,d);sync()}
+function move(from,to){
+  if(from===to||from<0||to<0||to>=rows.length)return;
+  const r=rows.splice(from,1)[0];
+  const d=done.splice(from,1)[0];
+  rows.splice(to,0,r);
+  done.splice(to,0,d);
+  sync();
+}
 function render(){
- const total=rows.length,fin=done.filter(Boolean).length;$('total').textContent=total;$('left').textContent=total-fin;$('done').textContent=fin;$('bar').style.width=(total?fin/total*100:0)+'%';
- const box=$('list');box.innerHTML='';
- if(rows.length && done.every(Boolean)){box.innerHTML='<div style="padding:24px 8px;text-align:center;font-weight:700">🎉 Todas as entregas foram finalizadas!</div>';return}
- rows.forEach((r,i)=>{if(done[i]) return; const el=document.createElement('div');el.className='row';el.dataset.i=i;
- el.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="seq"></div><div class="addr"></div></div><div class="rowActions"><button class="secondary back">↩ Voltar</button><button class="primary ok">✓ Entreguei</button></div>';
- el.querySelector('.seq').textContent=r.sequence||String(i+1);el.querySelector('.addr').textContent=r.address||'Endereço não informado';
- el.querySelector('.ok').onclick=()=>{done[i]=true;sync()};el.querySelector('.back').onclick=()=>{done[i]=false;sync()};
- const h=el.querySelector('.handle');h.onpointerdown=e=>{e.preventDefault();dragFrom=i;hold=setTimeout(()=>{dragging=true;el.classList.add('dragging')},400)};
- h.onpointermove=e=>{if(!dragging)return;document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));const z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row');if(z&&z!==el)z.classList.add('over')};
- h.onpointerup=e=>{clearTimeout(hold);if(dragging){const z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row'),to=z?Number(z.dataset.i):dragFrom;if(z&&to!==dragFrom)move(dragFrom,to)}dragging=false;dragFrom=-1;render()};
- h.onpointercancel=()=>{clearTimeout(hold);dragging=false;dragFrom=-1;render()};box.appendChild(el)});
+  const total=rows.length,fin=done.filter(Boolean).length;
+  $('total').textContent=total;
+  $('left').textContent=total-fin;
+  $('done').textContent=fin;
+  $('bar').style.width=(total?fin/total*100:0)+'%';
+
+  const box=$('list');
+  box.innerHTML='';
+  if(rows.length&&done.every(Boolean)){
+    box.innerHTML='<div style="padding:24px 8px;text-align:center;font-weight:700">🎉 Todas as entregas foram finalizadas!</div>';
+    return;
+  }
+
+  rows.forEach((r,i)=>{
+    if(done[i])return;
+    const el=document.createElement('div');
+    el.className='row';
+    el.dataset.i=i;
+    el.innerHTML='<div class="top"><div class="handle">⋮⋮</div><div class="seq"></div><div class="addr"></div></div><div class="rowActions"><button class="secondary back" type="button">↩ Voltar</button><button class="primary ok" type="button">✓ Entreguei</button></div>';
+
+    el.querySelector('.seq').textContent=r.sequence||String(i+1);
+    el.querySelector('.addr').textContent=r.address||'Endereço não informado';
+
+    el.querySelector('.ok').onclick=()=>{
+      done[i]=true;sync();
+    };
+    el.querySelector('.back').onclick=()=>{
+      done[i]=false;sync();
+    };
+
+    const h=el.querySelector('.handle');
+    h.onpointerdown=e=>{
+      e.preventDefault();
+      dragFrom=i;
+      hold=setTimeout(()=>{
+        dragging=true;
+        el.classList.add('dragging');
+      },400);
+    };
+    h.onpointermove=e=>{
+      if(!dragging)return;
+      document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));
+      const z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row');
+      if(z&&z!==el)z.classList.add('over');
+    };
+    h.onpointerup=e=>{
+      clearTimeout(hold);
+      if(dragging){
+        const z=document.elementFromPoint(e.clientX,e.clientY)?.closest('.row');
+        const to=z?Number(z.dataset.i):dragFrom;
+        if(z&&to!==dragFrom)move(dragFrom,to);
+      }
+      dragging=false;dragFrom=-1;render();
+    };
+    h.onpointercancel=()=>{
+      clearTimeout(hold);dragging=false;dragFrom=-1;render();
+    };
+    box.appendChild(el);
+  });
 }
-$('file').addEventListener('change',e=>{if(e.target.files[0])load(e.target.files[0])});
-$('undoAll').onclick=()=>{done=rows.map(()=>false);sync()};
-$('finishAll').onclick=()=>{if(confirm('Finalizar todas as entregas?')){done=rows.map(()=>true);sync()}};
+
+$('file').addEventListener('change',e=>{
+  const file=e.target.files&&e.target.files[0];
+  if(file)load(file);
+});
+$('undoAll').onclick=()=>{
+  done=rows.map(()=>false);
+  sync();
+};
+$('finishAll').onclick=()=>{
+  if(confirm('Finalizar todas as entregas?')){
+    done=rows.map(()=>true);
+    sync();
+  }
+};
+
+window.addEventListener('error',e=>{
+  if(e.message&&/XLSX|supabase/i.test(e.message))showError('Ocorreu um erro ao carregar os componentes da página. Atualize a página e tente novamente.');
+});
+
 initSupabase();
 })();
 </script>
-</body></html>
-<!-- republicar GitHub Pages -->
+</body>
+</html>
