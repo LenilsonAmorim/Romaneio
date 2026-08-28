@@ -11,15 +11,44 @@ header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;fon
 main{max-width:1000px;margin:auto;padding:14px 12px 80px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
 #map{height:500px;border-radius:14px;overflow:hidden}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}.legend span{font-weight:700}
 .driver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}.grow{flex:1}.name{font-weight:800}.detail{font-size:13px;color:#66717d;margin-top:3px}.badge{font-size:11px;font-weight:800}.online{color:#15803d}.offline{color:#b45309}.old{color:#6b7280}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:6px}.dot.on{background:#16a34a}.dot.off{background:#f59e0b}
-button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;background:#111827;color:#fff}
+button{border:0;border-radius:11px;padding:13px 14px;font-weight:800;background:#111827;color:#fff;width:100%;font-size:15px;cursor:pointer}
+.gpsButton{background:#16a34a;margin-top:8px}.gpsButton:active{transform:scale(.99)}
+.gpsHint{font-size:13px;line-height:1.5;color:#66717d;margin:10px 0 0}
 </style>
 </head>
 <body>
 <header><div class="brand">ROMANEIO</div><div class="sub">Painel do patrão • Rastreamento em tempo real</div></header>
 <main>
-<div class="card"><h2 style="margin-top:0">📍 Entregadores</h2><div class="legend"><span>🟢 Online</span><span>🟠 Offline recente</span><span>⚪ Última posição antiga</span></div><div id="map"></div></div>
-<div class="card"><h2 style="margin-top:0">Equipe</h2><div id="drivers">Carregando...</div></div>
+
+<div class="card">
+  <h2 style="margin-top:0">📍 Entregadores</h2>
+  <div class="legend">
+    <span>🟢 Online</span>
+    <span>🟠 Offline recente</span>
+    <span>⚪ Última posição antiga</span>
+  </div>
+  <div id="map"></div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Equipe</h2>
+  <div id="drivers">Carregando...</div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">📍 Ativar localização em tempo real</h2>
+  <p class="gpsHint">
+    Você é o entregador? Toque no botão abaixo para permitir o GPS,
+    iniciar o envio da sua localização e aparecer no mapa em tempo real.
+  </p>
+  <button id="activateGps" class="gpsButton" type="button">
+    📍 Ativar minha localização
+  </button>
+  <p id="gpsMsg" class="gpsHint"></p>
+</div>
+
 </main>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -70,6 +99,10 @@ sb.channel("rastreamento-real")
 .on("postgres_changes",{event:"*",schema:"public",table:c.table},()=>load())
 .subscribe();
 setInterval(load,30000);
+
+document.getElementById("activateGps").addEventListener("click",()=>{
+  window.location.href="entregador.html";
+});
 })();
 </script>
 </body>
