@@ -22,7 +22,7 @@
 </head>
 <body>
 <header class="appHeader">
-  <div class="brand">ROMANEIO</div>
+  <button id="brandHome" type="button" class="brand" aria-label="Voltar para o início">ROMANEIO</button>
   <div class="subtitle">Roteirização diária</div>
   <button id="topPlanilhaPronta" type="button" style="margin-top:12px;width:100%;border:0;border-radius:12px;padding:12px 14px;background:#fff;color:#111827;font-weight:800;font-size:15px;cursor:pointer">📋 Planilha pronta</button>
 </header>
@@ -171,8 +171,33 @@
     Object.keys(navs).forEach(name=>{
       if(!navs[name])return;
       navs[name].type='button';
-      navs[name].onclick=function(e){e.preventDefault();e.stopImmediatePropagation();show(name);return false};
+      navs[name].onclick=function(e){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(name==='tracking'){
+          window.location.href='rastreamento.html';
+          return false;
+        }
+        show(name);
+        return false;
+      };
     });
+    const brandHome=document.getElementById('brandHome');
+    if(brandHome)brandHome.onclick=function(e){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      show('route');
+      return false;
+    };
+
+    const tracking=document.getElementById('navTracking');
+    if(tracking)tracking.onclick=function(e){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.location.href='rastreamento.html';
+      return false;
+    };
+
     const pronto=document.getElementById('topPlanilhaPronta');
     if(pronto)pronto.onclick=function(e){e.preventDefault();e.stopImmediatePropagation();location.href='planilha-pronta.html';return false};
     const entregador=document.getElementById('openDriverMode');
