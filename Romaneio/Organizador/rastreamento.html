@@ -10,10 +10,14 @@
 header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}
 main{max-width:1000px;margin:auto;padding:14px 12px 80px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
 #map{height:500px;border-radius:14px;overflow:hidden}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}.legend span{font-weight:700}
-.driver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}.grow{flex:1}.name{font-weight:800}.detail{font-size:13px;color:#66717d;margin-top:3px}.badge{font-size:11px;font-weight:800}.online{color:#15803d}.offline{color:#b45309}.old{color:#6b7280}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:6px}.dot.on{background:#16a34a}.dot.off{background:#f59e0b}
+.driver{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}
+.driver.selected{background:#f0fdf4;border-radius:10px;padding-left:10px;padding-right:10px}
+.grow{flex:1}.name{font-weight:800}.detail{font-size:13px;color:#66717d;margin-top:3px}.badge{font-size:11px;font-weight:800}.online{color:#15803d}.offline{color:#b45309}.old{color:#6b7280}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:6px}.dot.on{background:#16a34a}.dot.off{background:#f59e0b}
 button{border:0;border-radius:11px;padding:13px 14px;font-weight:800;background:#111827;color:#fff;width:100%;font-size:15px;cursor:pointer}
-.gpsButton{background:#16a34a;margin-top:8px}.gpsButton:active{transform:scale(.99)}
+.gpsButton{background:#16a34a;margin-top:8px}.stopFollow{background:#e9edf1;color:#17202a;margin-top:8px}
 .gpsHint{font-size:13px;line-height:1.5;color:#66717d;margin:10px 0 0}
+.followInfo{font-size:13px;background:#f0fdf4;color:#166534;padding:10px;border-radius:10px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -28,10 +32,13 @@ button{border:0;border-radius:11px;padding:13px 14px;font-weight:800;background:
     <span>⚪ Última posição antiga</span>
   </div>
   <div id="map"></div>
+  <div id="followInfo" class="followInfo" hidden></div>
+  <button id="stopFollow" class="stopFollow" type="button" hidden>✋ Parar de acompanhar</button>
 </div>
 
 <div class="card">
   <h2 style="margin-top:0">Equipe</h2>
+  <p class="gpsHint">Toque no nome de um entregador para fixar o mapa nele. Enquanto estiver selecionado, o mapa acompanha automaticamente cada nova posição do GPS.</p>
   <div id="drivers">Carregando...</div>
 </div>
 
@@ -57,51 +64,191 @@ button{border:0;border-radius:11px;padding:13px 14px;font-weight:800;background:
 const c=window.ROMANEIO_SUPABASE, sb=window.supabase.createClient(c.url,c.anonKey);
 const map=L.map("map").setView([-9.65,-35.735],13);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+
 const markers={};
 let first=true;
+let selectedDriverId=null;
+let lastFollowPosition=null;
+
 function statusOf(x){
  if(!x.latitude||!x.longitude)return "Sem localização";
- const age=(Date.now()-new Date(x.ultima_atualizacao||x.updated_at).getTime())/60000;
+ const raw=x.ultima_atualizacao||x.updated_at;
+ const time=raw?new Date(raw).getTime():0;
+ const age=(Date.now()-time)/60000;
  if(x.status==="online" && age<3)return "Online";
  if(age<15)return "Offline recente";
  return "Última posição antiga";
 }
-function iconFor(st){
+
+function iconFor(st, selected=false){
  const color=st==="Online"?"#16a34a":st==="Offline recente"?"#f59e0b":"#9ca3af";
- return L.divIcon({className:"",html:'<div style="width:34px;height:34px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:17px">🏍️</div>',iconSize:[34,34],iconAnchor:[17,17]});
-}
-function render(data){
- const list=document.getElementById("drivers");list.innerHTML="";
- data.forEach(x=>{
-   const st=statusOf(x), when=x.ultima_atualizacao||x.updated_at;
-   if(x.latitude&&x.longitude){
-     const popup="<b>"+x.nome+"</b><br>"+st+"<br>"+(x.pedido_atual||"Sem pedido");
-     if(!markers[x.entregador_id]) markers[x.entregador_id]=L.marker([x.latitude,x.longitude],{icon:iconFor(st)}).addTo(map).bindPopup(popup);
-     else markers[x.entregador_id].setLatLng([x.latitude,x.longitude]).setIcon(iconFor(st)).setPopupContent(popup);
-     if(first){map.setView([x.latitude,x.longitude],14);first=false}
-   }
-   const age=when?Math.max(0,Math.round((Date.now()-new Date(when).getTime())/60000)):null;
-   const div=document.createElement("div");div.className="driver";
-   div.innerHTML='<span class="dot '+(st==="Online"?"on":st==="Offline recente"?"off":"")+'"></span><div class="grow"><div class="name"></div><div class="detail"></div></div><span class="badge '+(st==="Online"?"online":st==="Offline recente"?"offline":"old")+'"></span>';
-   div.querySelector(".name").textContent=x.nome;
-   div.querySelector(".detail").textContent=(x.pedido_atual?"Pedido "+x.pedido_atual+" • ":"")+(age===null?"sem atualização":"última atualização há "+age+" min");
-   div.querySelector(".badge").textContent=st.toUpperCase();
-   list.appendChild(div);
+ const border=selected?"#111827":"white";
+ return L.divIcon({
+   className:"",
+   html:'<div style="width:38px;height:38px;border-radius:50%;background:'+color+';border:4px solid '+border+';box-shadow:0 2px 8px #0005;display:grid;place-items:center;font-size:18px">🏍️</div>',
+   iconSize:[38,38],
+   iconAnchor:[19,19]
  });
 }
+
+function selectDriver(id, data){
+ const driver=data.find(x=>String(x.entregador_id)===String(id));
+ if(!driver)return;
+
+ selectedDriverId=driver.entregador_id;
+ lastFollowPosition=null;
+
+ document.getElementById("followInfo").hidden=false;
+ document.getElementById("followInfo").textContent=
+   "📍 Acompanhando "+driver.nome+" em tempo real. O mapa seguirá automaticamente os movimentos.";
+
+ document.getElementById("stopFollow").hidden=false;
+
+ if(driver.latitude&&driver.longitude){
+   const pos=[Number(driver.latitude),Number(driver.longitude)];
+   lastFollowPosition=pos;
+   map.setView(pos,17,{animate:true});
+   if(markers[driver.entregador_id])markers[driver.entregador_id].openPopup();
+ }
+
+ // Atualiza visual da equipe sem recriar o acompanhamento.
+ document.querySelectorAll(".driver").forEach(el=>{
+   el.classList.toggle("selected",String(el.dataset.driverId)===String(selectedDriverId));
+ });
+
+ // Atualiza ícone do selecionado.
+ data.forEach(x=>{
+   if(markers[x.entregador_id]){
+     markers[x.entregador_id].setIcon(iconFor(statusOf(x),String(x.entregador_id)===String(selectedDriverId)));
+   }
+ });
+}
+
+function render(data){
+ const list=document.getElementById("drivers");
+ list.innerHTML="";
+
+ data.forEach(x=>{
+   const st=statusOf(x), when=x.ultima_atualizacao||x.updated_at;
+
+   if(x.latitude&&x.longitude){
+     const popup="<b>"+x.nome+"</b><br>"+st+"<br>"+(x.pedido_atual||"Sem pedido");
+
+     if(!markers[x.entregador_id]){
+       markers[x.entregador_id]=L.marker(
+         [x.latitude,x.longitude],
+         {icon:iconFor(st,String(x.entregador_id)===String(selectedDriverId))}
+       ).addTo(map).bindPopup(popup);
+     }else{
+       markers[x.entregador_id]
+         .setLatLng([x.latitude,x.longitude])
+         .setIcon(iconFor(st,String(x.entregador_id)===String(selectedDriverId)))
+         .setPopupContent(popup);
+     }
+
+     // Primeira posição: apenas enquadra uma vez.
+     if(first){
+       map.setView([x.latitude,x.longitude],14);
+       first=false;
+     }
+
+     // ESTE É O PONTO PRINCIPAL:
+     // se o entregador estiver selecionado, cada nova posição
+     // reposiciona o centro do mapa nele.
+     if(String(x.entregador_id)===String(selectedDriverId)){
+       const pos=[Number(x.latitude),Number(x.longitude)];
+
+       const changed=!lastFollowPosition ||
+         pos[0]!==lastFollowPosition[0] ||
+         pos[1]!==lastFollowPosition[1];
+
+       if(changed){
+         lastFollowPosition=pos;
+         map.setView(pos,map.getZoom()<16?17:map.getZoom(),{
+           animate:true,
+           duration:.5
+         });
+       }
+     }
+   }
+
+   const age=when?Math.max(0,Math.round((Date.now()-new Date(when).getTime())/60000)):null;
+
+   const div=document.createElement("div");
+   div.className="driver"+(String(x.entregador_id)===String(selectedDriverId)?" selected":"");
+   div.dataset.driverId=x.entregador_id;
+
+   div.innerHTML=
+     '<span class="dot '+(st==="Online"?"on":st==="Offline recente"?"off":"")+'"></span>'+
+     '<div class="grow"><div class="name"></div><div class="detail"></div></div>'+
+     '<span class="badge '+(st==="Online"?"online":st==="Offline recente"?"offline":"old")+'"></span>';
+
+   div.querySelector(".name").textContent=x.nome;
+   div.querySelector(".detail").textContent=
+     (x.pedido_atual?"Pedido "+x.pedido_atual+" • ":"")+
+     (age===null?"sem atualização":"última atualização há "+age+" min");
+   div.querySelector(".badge").textContent=st.toUpperCase();
+
+   div.addEventListener("click",()=>{
+     // Rebusca a lista atual para selecionar com a posição mais recente.
+     currentData=data;
+     selectDriver(x.entregador_id,currentData);
+   });
+
+   list.appendChild(div);
+ });
+
+ // Se o selecionado não apareceu nesta atualização, mantém a seleção.
+ if(selectedDriverId!==null){
+   const selected=data.find(x=>String(x.entregador_id)===String(selectedDriverId));
+   if(selected && selected.latitude && selected.longitude){
+     const pos=[Number(selected.latitude),Number(selected.longitude)];
+     lastFollowPosition=pos;
+     map.setView(pos,map.getZoom()<16?17:map.getZoom(),{animate:true,duration:.5});
+   }
+ }
+}
+
+let currentData=[];
+
 async function load(){
  const {data,error}=await sb.from(c.table).select("*").order("updated_at",{ascending:false});
- if(error){document.getElementById("drivers").textContent="Erro ao carregar rastreamento.";console.error(error);return}
- render(data||[]);
+
+ if(error){
+   document.getElementById("drivers").textContent="Erro ao carregar rastreamento.";
+   console.error(error);
+   return;
+ }
+
+ currentData=data||[];
+ render(currentData);
 }
+
 await load();
+
 sb.channel("rastreamento-real")
 .on("postgres_changes",{event:"*",schema:"public",table:c.table},()=>load())
 .subscribe();
+
 setInterval(load,30000);
 
+document.getElementById("stopFollow").addEventListener("click",()=>{
+ selectedDriverId=null;
+ lastFollowPosition=null;
+ document.getElementById("followInfo").hidden=true;
+ document.getElementById("stopFollow").hidden=true;
+
+ document.querySelectorAll(".driver").forEach(el=>el.classList.remove("selected"));
+
+ currentData.forEach(x=>{
+   if(markers[x.entregador_id]){
+     markers[x.entregador_id].setIcon(iconFor(statusOf(x),false));
+   }
+ });
+});
+
 document.getElementById("activateGps").addEventListener("click",()=>{
-  window.location.href="entregador.html";
+ window.location.href="entregador.html";
 });
 })();
 </script>
