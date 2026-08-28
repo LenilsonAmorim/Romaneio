@@ -4,471 +4,191 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Romaneio • GPS do entregador</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#17202a}
-header{background:#111827;color:#fff;padding:18px 16px}
-.brand{font-size:22px;font-weight:800}
-.sub{opacity:.75;font-size:13px;margin-top:4px}
-main{max-width:600px;margin:auto;padding:14px}
-.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
-label{display:block;font-weight:700;margin:12px 0 6px}
-input{width:100%;padding:13px;border:1px solid #ccd3da;border-radius:10px;font-size:16px}
+*{box-sizing:border-box}body{margin:0;background:#f4f6f8;font-family:Arial,sans-serif;color:#17202a}
+header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}
+main{max-width:650px;margin:auto;padding:14px}.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 2px 10px #0001}
+label{display:block;font-weight:700;margin:12px 0 6px}input{width:100%;padding:13px;border:1px solid #ccd3da;border-radius:10px;font-size:16px}
 button{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:800;background:#111827;color:#fff;margin-top:10px}
-button.stop{background:#b42318}
-button.retry{background:#e9edf1;color:#17202a}
-button:disabled{opacity:.55}
-.muted{color:#66717d;font-size:13px;line-height:1.5}
+button.stop{background:#b42318}button.retry{background:#e9edf1;color:#17202a}button:disabled{opacity:.55}
+button.finish{background:#16a34a}button.route{background:#2563eb}.muted{color:#66717d;font-size:13px;line-height:1.5}
 .coords{font-family:monospace;background:#f1f3f5;border-radius:10px;padding:12px;word-break:break-word}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:7px}
-.on{background:#16a34a}.warn{background:#f59e0b}.err{background:#dc2626}
-.notice{padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:13px;margin-top:12px}
-.ok{padding:12px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:13px;margin-top:12px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#9ca3af;margin-right:7px}.on{background:#16a34a}.warn{background:#f59e0b}.err{background:#dc2626}
+.notice{padding:12px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:13px;margin-top:12px}.ok{padding:12px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:13px;margin-top:12px}
+.nextTitle{font-size:13px;color:#66717d;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.nextAddress{font-size:21px;font-weight:900;margin:7px 0}.nextMeta{font-size:13px;color:#66717d}
+#routeMap{height:390px;border-radius:14px;overflow:hidden;margin-top:12px}.routeStatus{font-size:13px;color:#66717d;margin-top:8px}.routeBadge{display:inline-block;padding:5px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900}
+.pendingRow{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #eee;align-items:center}.num{width:30px;height:30px;border-radius:50%;background:#2563eb;color:#fff;display:grid;place-items:center;font-weight:900;flex:none}.pendingText{flex:1}.pendingText b{display:block}.pendingText small{color:#66717d}.done{opacity:.55;text-decoration:line-through}
 </style>
 </head>
 <body>
-<header>
-<div class="brand">ROMANEIO</div>
-<div class="sub">GPS do entregador</div>
-</header>
+<header><div class="brand">ROMANEIO</div><div class="sub">GPS do entregador • rota inteligente</div></header>
 
 <main>
 <div class="card">
 <h2>🏍️ Identificação</h2>
-
-<label>Nome do entregador</label>
-<input id="nome" placeholder="Ex.: João">
-
-<label>ID do entregador</label>
-<input id="id" placeholder="Ex.: joao01">
-
-<label>Pedido atual (opcional)</label>
-<input id="pedido" placeholder="Ex.: #125">
-
+<label>Nome do entregador</label><input id="nome" placeholder="Ex.: João">
+<label>ID do entregador</label><input id="id" placeholder="Ex.: joao01">
+<label>Pedido atual (opcional)</label><input id="pedido" placeholder="Ex.: #125">
 <button id="start">📍 Iniciar rastreamento</button>
 <button id="stop" class="stop" hidden>■ Parar rastreamento</button>
 <button id="retry" class="retry" hidden>🔄 Tentar novamente</button>
-
 <div id="msg" class="muted">Aguardando ativação.</div>
 </div>
 
 <div class="card">
-<div>
-<span id="dot" class="dot"></span>
-<b id="state">Aguardando</b>
-</div>
-
+<div><span id="dot" class="dot"></span><b id="state">Aguardando</b></div>
 <p class="muted">Última posição:</p>
-
-<div id="coords" class="coords">
-Nenhuma posição enviada.
+<div id="coords" class="coords">Nenhuma posição enviada.</div>
+<p id="last" class="muted"></p>
 </div>
 
-<p id="last" class="muted"></p>
+<div class="card">
+<div class="nextTitle">PRÓXIMA PARADA</div>
+<div id="nextAddress" class="nextAddress">Carregando rota...</div>
+<div id="nextMeta" class="nextMeta"></div>
+<button id="routeButton" class="route" type="button">🧭 Atualizar trajeto</button>
+<button id="finishButton" class="finish" type="button" hidden>✅ Finalizar esta parada</button>
+<div id="routeStatus" class="routeStatus"></div>
+<div id="routeMap"></div>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">📦 Entregas pendentes</h3>
+<div id="pendingList" class="muted">Carregando...</div>
 </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
+let watchId=null,lastSent=0,started=false,lastPosition=null,routeLayer=null,nextCoords=null;
+const $=id=>document.getElementById(id);
+const ROUTE_KEY="romaneio_last_route_view_v1", FINISHED_KEY="romaneio_finished_stops_v1";
+const saved=JSON.parse(localStorage.getItem("romaneio_entregador")||"{}");
+$("nome").value=saved.nome||"";$("id").value=saved.id||"";$("pedido").value=saved.pedido||"";
 
-let watchId = null;
-let lastSent = 0;
-let started = false;
+const map=L.map("routeMap").setView([-9.65,-35.735],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+let meMarker=null,nextMarker=null;
 
-const $ = id => document.getElementById(id);
-
-const saved = JSON.parse(
-  localStorage.getItem("romaneio_entregador") || "{}"
-);
-
-$("nome").value = saved.nome || "";
-$("id").value = saved.id || "";
-$("pedido").value = saved.pedido || "";
-
-function cfg(){
-  return window.ROMANEIO_SUPABASE;
+function loadRoute(){try{return JSON.parse(localStorage.getItem(ROUTE_KEY)||"null")||{data:[]}}catch(e){return{data:[]}}}
+function finished(){try{return JSON.parse(localStorage.getItem(FINISHED_KEY)||"[]")||[]}catch(e){return[]}}
+function key(x){return String(x.originalIndex??"")+"|"+String(x.numero??"")+"|"+String(x.endereco??"")}
+function pending(){
+ const data=(loadRoute().data||[]);const done=new Set(finished());
+ return data.filter(x=>!done.has(key(x)));
 }
-
-function saveLocal(payload){
-  localStorage.setItem(
-    "ultima_localizacao",
-    JSON.stringify(payload)
-  );
+function renderPending(){
+ const data=pending(),box=$("pendingList");
+ if(!data.length){box.innerHTML='<div class="ok">🎉 Todas as entregas foram concluídas.</div>';return}
+ box.innerHTML=data.map((x,i)=>'<div class="pendingRow"><span class="num">'+(i+1)+'</span><div class="pendingText"><b>'+esc(x.endereco||"Endereço não informado")+'</b><small>'+esc(x.bairro||"")+" • Ordem "+esc(x.sequencia||"—")+'</small></div></div>').join("");
 }
+function esc(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function firstPending(){return pending()[0]||null}
 
+async function geocode(item){
+ const cached=JSON.parse(localStorage.getItem("romaneio_geocode_cache_v1")||"{}");
+ const ck=(item.endereco||"")+"|"+(item.bairro||"");
+ if(cached[ck])return cached[ck];
+ const q=[item.endereco,item.bairro,"Maceió","Alagoas","Brasil"].filter(Boolean).join(", ");
+ $("routeStatus").textContent="📍 Localizando a próxima parada...";
+ const url="https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q="+encodeURIComponent(q);
+ const r=await fetch(url,{headers:{"Accept":"application/json"}});
+ if(!r.ok)throw new Error("Geocodificação indisponível");
+ const d=await r.json();if(!d.length)throw new Error("Endereço não encontrado");
+ const p={lat:Number(d[0].lat),lon:Number(d[0].lon),display:d[0].display_name};
+ cached[ck]=p;localStorage.setItem("romaneio_geocode_cache_v1",JSON.stringify(cached));return p;
+}
+async function routeTo(dest){
+ if(!lastPosition){$("routeStatus").textContent="📍 Ative o GPS para calcular o trajeto.";return}
+ try{
+   const url="https://router.project-osrm.org/route/v1/driving/"+lastPosition.lon+","+lastPosition.lat+";"+dest.lon+","+dest.lat+"?overview=full&geometries=geojson&steps=true";
+   const r=await fetch(url);if(!r.ok)throw new Error("Rota indisponível");
+   const d=await r.json();if(!d.routes||!d.routes[0])throw new Error("Não foi possível calcular a rota");
+   const rt=d.routes[0];
+   if(routeLayer)map.removeLayer(routeLayer);
+   routeLayer=L.geoJSON(rt.geometry,{style:{weight:6,opacity:.85}}).addTo(map);
+   const bounds=routeLayer.getBounds();if(bounds.isValid())map.fitBounds(bounds,{padding:[25,25]});
+   $("routeStatus").textContent="🛣️ "+(rt.distance/1000).toFixed(1)+" km • aproximadamente "+Math.round(rt.duration/60)+" min até a próxima parada.";
+ }catch(e){console.warn(e);$("routeStatus").textContent="⚠️ Não foi possível calcular o trajeto agora."}
+}
+async function updateNext(){
+ const item=firstPending();
+ if(!item){
+   $("nextAddress").textContent="Rota concluída 🎉";$("nextMeta").textContent="Nenhuma parada pendente.";$("finishButton").hidden=true;$("routeButton").hidden=true;renderPending();if(routeLayer){map.removeLayer(routeLayer);routeLayer=null}return;
+ }
+ $("nextAddress").textContent=item.endereco||"Endereço não informado";
+ $("nextMeta").innerHTML='<span class="routeBadge">PRÓXIMA</span> '+esc(item.bairro||"Bairro não informado")+" • ordem "+esc(item.sequencia||"—");
+ $("finishButton").hidden=false;$("routeButton").hidden=false;renderPending();
+ try{
+   nextCoords=await geocode(item);
+   if(nextMarker)map.removeLayer(nextMarker);
+   nextMarker=L.marker([nextCoords.lat,nextCoords.lon]).addTo(map).bindPopup("<b>Próxima parada</b><br>"+esc(item.endereco||""));
+   if(lastPosition)await routeTo(nextCoords);
+ }catch(e){$("routeStatus").textContent="⚠️ "+e.message+". Confira o endereço da planilha."}
+}
+$("finishButton").onclick=()=>{
+ const item=firstPending();if(!item)return;
+ const done=finished();done.push(key(item));localStorage.setItem(FINISHED_KEY,JSON.stringify([...new Set(done)]));
+ nextCoords=null;updateNext();
+};
+$("routeButton").onclick=()=>updateNext();
+window.addEventListener("storage",e=>{if(e.key===ROUTE_KEY||e.key===FINISHED_KEY)updateNext()});
+
+function cfg(){return window.ROMANEIO_SUPABASE}
+function saveLocal(payload){localStorage.setItem("ultima_localizacao",JSON.stringify(payload))}
 async function sendPosition(payload){
-
-  saveLocal(payload);
-
-  if(!navigator.onLine){
-
-    $("msg").textContent =
-      "📴 Sem internet. A posição foi salva neste aparelho.";
-
-    return false;
-  }
-
-  try{
-
-    const c = cfg();
-
-    if(!c || !c.url || !c.anonKey){
-      throw new Error("Supabase não configurado.");
-    }
-
-    const client =
-      window.supabase.createClient(
-        c.url,
-        c.anonKey
-      );
-
-    const { error } =
-      await client
-        .from(c.table)
-        .upsert(
-          payload,
-          { onConflict:"entregador_id" }
-        );
-
-    if(error) throw error;
-
-    $("msg").textContent =
-      "🟢 Localização enviada ao painel.";
-
-    return true;
-
-  }catch(error){
-
-    console.error(error);
-
-    $("msg").textContent =
-      "⚠️ Não foi possível sincronizar agora. A posição ficou salva localmente.";
-
-    return false;
-  }
+ saveLocal(payload);
+ if(!navigator.onLine){$("msg").textContent="📴 Sem internet. A posição foi salva neste aparelho.";return false}
+ try{
+  const c=cfg();if(!c||!c.url||!c.anonKey)throw new Error("Supabase não configurado.");
+  const client=window.supabase.createClient(c.url,c.anonKey);
+  const {error}=await client.from(c.table).upsert(payload,{onConflict:"entregador_id"});if(error)throw error;
+  $("msg").textContent="🟢 Localização enviada ao painel.";return true;
+ }catch(error){console.error(error);$("msg").textContent="⚠️ Não foi possível sincronizar agora. A posição ficou salva localmente.";return false}
 }
-
-function showError(message){
-
-  started = false;
-
-  $("state").textContent =
-    "GPS indisponível";
-
-  $("dot").className =
-    "dot err";
-
-  $("msg").textContent =
-    message;
-
-  $("start").hidden = false;
-  $("stop").hidden = true;
-  $("retry").hidden = false;
-}
-
+function showError(message){started=false;$("state").textContent="GPS indisponível";$("dot").className="dot err";$("msg").textContent=message;$("start").hidden=false;$("stop").hidden=true;$("retry").hidden=false}
 function start(){
-
-  const nome =
-    $("nome").value.trim();
-
-  const id =
-    $("id").value.trim();
-
-  const pedido =
-    $("pedido").value.trim();
-
-  if(!nome || !id){
-
-    $("msg").textContent =
-      "⚠️ Informe o nome e o ID do entregador.";
-
-    return;
-  }
-
-  if(!navigator.geolocation){
-
-    showError(
-      "Este navegador não oferece localização GPS."
-    );
-
-    return;
-  }
-
-  if(watchId !== null){
-    return;
-  }
-
-  localStorage.setItem(
-    "romaneio_entregador",
-    JSON.stringify({
-      nome,
-      id,
-      pedido
-    })
-  );
-
-  $("msg").textContent =
-    "📍 Solicitando permissão de localização...";
-
-  $("state").textContent =
-    "Solicitando GPS";
-
-  $("dot").className =
-    "dot warn";
-
-  navigator.geolocation.getCurrentPosition(
-
-    async position => {
-
-      /*
-       * Só consideramos o rastreamento iniciado
-       * depois que o GPS realmente respondeu.
-       */
-
-      started = true;
-
-      $("start").hidden = true;
-      $("retry").hidden = true;
-      $("stop").hidden = false;
-
-      await processPosition(position);
-
-      /*
-       * Depois da primeira posição válida,
-       * acompanha os movimentos.
-       */
-
-      watchId =
-        navigator.geolocation.watchPosition(
-          processPosition,
-          gpsError,
-          {
-            enableHighAccuracy:true,
-            maximumAge:5000,
-            timeout:15000
-          }
-        );
-
-    },
-
-    error => {
-
-      if(error.code === 1){
-
-        showError(
-          "🚫 Permissão de localização negada. Abra as permissões do navegador e permita a localização para este site."
-        );
-
-      }else if(error.code === 2){
-
-        showError(
-          "📍 Não foi possível encontrar sua localização. Ative o GPS do aparelho e tente novamente."
-        );
-
-      }else{
-
-        showError(
-          "⏱️ O GPS demorou para responder. Tente novamente."
-        );
-
-      }
-
-    },
-
-    {
-      enableHighAccuracy:true,
-      maximumAge:0,
-      timeout:15000
-    }
-
-  );
+ const nome=$("nome").value.trim(),id=$("id").value.trim(),pedido=$("pedido").value.trim();
+ if(!nome||!id){$("msg").textContent="⚠️ Informe o nome e o ID do entregador.";return}
+ if(!navigator.geolocation){showError("Este navegador não oferece localização GPS.");return}
+ if(watchId!==null)return;
+ localStorage.setItem("romaneio_entregador",JSON.stringify({nome,id,pedido}));
+ $("msg").textContent="📍 Solicitando permissão de localização...";$("state").textContent="Solicitando GPS";$("dot").className="dot warn";
+ navigator.geolocation.getCurrentPosition(async position=>{
+  started=true;$("start").hidden=true;$("retry").hidden=true;$("stop").hidden=false;await processPosition(position);
+  watchId=navigator.geolocation.watchPosition(processPosition,gpsError,{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+ },error=>{
+  if(error.code===1)showError("🚫 Permissão de localização negada. Abra as permissões do navegador e permita a localização para este site.");
+  else if(error.code===2)showError("📍 Não foi possível encontrar sua localização. Ative o GPS do aparelho e tente novamente.");
+  else showError("⏱️ O GPS demorou para responder. Tente novamente.");
+ },{enableHighAccuracy:true,maximumAge:0,timeout:15000});
 }
-
 async function processPosition(position){
-
-  if(!started && watchId === null){
-    return;
-  }
-
-  const now = Date.now();
-
-  /*
-   * Evita mandar dezenas de posições por segundo.
-   * Uma atualização a cada 8 segundos é suficiente
-   * para o primeiro teste.
-   */
-
-  if(now - lastSent < 8000){
-    return;
-  }
-
-  lastSent = now;
-
-  const payload = {
-
-    entregador_id:
-      $("id").value.trim(),
-
-    nome:
-      $("nome").value.trim(),
-
-    latitude:
-      position.coords.latitude,
-
-    longitude:
-      position.coords.longitude,
-
-    status:
-      "online",
-
-    ultima_atualizacao:
-      new Date().toISOString(),
-
-    pedido_atual:
-      $("pedido").value.trim() || null,
-
-    updated_at:
-      new Date().toISOString()
-  };
-
-  $("coords").textContent =
-    payload.latitude.toFixed(6) +
-    " , " +
-    payload.longitude.toFixed(6);
-
-  $("last").textContent =
-    "Precisão aproximada: " +
-    Math.round(position.coords.accuracy) +
-    " m";
-
-  $("state").textContent =
-    "Online";
-
-  $("dot").className =
-    "dot on";
-
-  await sendPosition(payload);
+ if(!started&&watchId===null)return;
+ const now=Date.now();lastPosition={lat:position.coords.latitude,lon:position.coords.longitude};
+ if(!meMarker)meMarker=L.marker([lastPosition.lat,lastPosition.lon]).addTo(map).bindPopup("Minha localização");
+ else meMarker.setLatLng([lastPosition.lat,lastPosition.lon]);
+ if(nextCoords)routeTo(nextCoords);
+ if(now-lastSent<8000)return;lastSent=now;
+ const payload={entregador_id:$("id").value.trim(),nome:$("nome").value.trim(),latitude:position.coords.latitude,longitude:position.coords.longitude,status:"online",ultima_atualizacao:new Date().toISOString(),pedido_atual:$("pedido").value.trim()||null,updated_at:new Date().toISOString()};
+ $("coords").textContent=payload.latitude.toFixed(6)+" , "+payload.longitude.toFixed(6);$("last").textContent="Precisão aproximada: "+Math.round(position.coords.accuracy)+" m";$("state").textContent="Online";$("dot").className="dot on";await sendPosition(payload);
 }
-
-function gpsError(error){
-
-  console.error(error);
-
-  if(error.code === 1){
-
-    showError(
-      "🚫 Permissão de localização negada."
-    );
-
-  }else{
-
-    $("msg").textContent =
-      "⚠️ GPS temporariamente indisponível. Tentando continuar...";
-  }
-}
-
+function gpsError(error){if(error.code===1)showError("🚫 Permissão de localização negada.");else $("msg").textContent="⚠️ GPS temporariamente indisponível. Tentando continuar..."}
 async function stop(){
-
-  if(watchId !== null){
-
-    navigator.geolocation.clearWatch(
-      watchId
-    );
-
-    watchId = null;
-  }
-
-  started = false;
-
-  const id =
-    $("id").value.trim();
-
-  const nome =
-    $("nome").value.trim();
-
-  if(id){
-
-    await sendPosition({
-
-      entregador_id:id,
-
-      nome:nome || id,
-
-      status:"offline",
-
-      ultima_atualizacao:
-        new Date().toISOString(),
-
-      updated_at:
-        new Date().toISOString()
-
-    });
-  }
-
-  $("state").textContent =
-    "Offline";
-
-  $("dot").className =
-    "dot";
-
-  $("msg").textContent =
-    "Rastreamento parado.";
-
-  $("start").hidden = false;
-  $("stop").hidden = true;
-  $("retry").hidden = false;
+ if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}started=false;
+ const id=$("id").value.trim(),nome=$("nome").value.trim();
+ if(id)await sendPosition({entregador_id:id,nome:nome||id,status:"offline",ultima_atualizacao:new Date().toISOString(),updated_at:new Date().toISOString()});
+ $("state").textContent="Offline";$("dot").className="dot";$("msg").textContent="Rastreamento parado.";$("start").hidden=false;$("stop").hidden=true;$("retry").hidden=false;
 }
-
-$("start").addEventListener(
-  "click",
-  start
-);
-
-$("retry").addEventListener(
-  "click",
-  () => {
-
-    $("retry").hidden = true;
-
-    start();
-
-  }
-);
-
-$("stop").addEventListener(
-  "click",
-  stop
-);
-
-window.addEventListener(
-  "online",
-  () => {
-
-    $("msg").textContent =
-      "🌐 Internet voltou. A próxima posição será sincronizada.";
-
-  }
-);
-
-window.addEventListener(
-  "offline",
-  () => {
-
-    if(started){
-
-      $("msg").textContent =
-        "📴 Sem internet. O GPS continua funcionando e a última posição fica salva neste aparelho.";
-
-    }
-
-  }
-);
-
+$("start").onclick=start;$("retry").onclick=()=>{$("retry").hidden=true;start()};$("stop").onclick=stop;
+window.addEventListener("online",()=>{$("msg").textContent="🌐 Internet voltou. A próxima posição será sincronizada."});
+window.addEventListener("offline",()=>{if(started)$("msg").textContent="📴 Sem internet. O GPS continua funcionando."});
+renderPending();updateNext();
 })();
 </script>
-
 </body>
 </html>
