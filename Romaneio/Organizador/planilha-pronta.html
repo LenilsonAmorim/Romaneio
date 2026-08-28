@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Planilha pronta • Rota do dia</title>
+<title>Planilha pronta v2 • Rota do dia</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f4f6f8;color:#17202a;font-family:Arial,sans-serif}
@@ -69,7 +69,7 @@ button{border:0;border-radius:11px;padding:12px 14px;font-size:15px;font-weight:
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 (()=>{
-let rows=[],done=[],hold=null,dragging=false,dragFrom=-1;
+let rows=[],done=[],hold=null,dragging=false,dragFrom=-1,userLoadedFile=false;
 let sb=null,channel=null,saveTimer=null,applyingRemote=false;
 
 const $=id=>document.getElementById(id);
@@ -84,11 +84,11 @@ function showError(msg){
   $('error').textContent=msg||'';
 }
 function configured(){
-  const c=window.ROMANEIO_PLANILHA_SUPABASE||{};
+  const c=window.ROMANEIO_SUPABASE||{};
   return !!(c.url&&c.anonKey&&window.supabase);
 }
 function config(){
-  const c=window.ROMANEIO_PLANILHA_SUPABASE||{};
+  const c=window.ROMANEIO_SUPABASE||{};
   return {
     url:c.url||'',
     anonKey:c.anonKey||'',
@@ -131,7 +131,7 @@ async function initSupabase(){
     sb=window.supabase.createClient(c.url,c.anonKey);
     const {data,error}=await sb.from(c.table).select('id,dados,updated_at').eq('id',c.rotaId).maybeSingle();
     if(error)throw error;
-    if(data&&Array.isArray(data.dados)){
+    if(!userLoadedFile && data&&Array.isArray(data.dados)){
       rows=data.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
       done=data.dados.map(r=>Boolean(r.done));
       localSave();
@@ -152,7 +152,7 @@ function subscribe(){
   if(channel)sb.removeChannel(channel);
   channel=sb.channel('romaneio-rota-'+c.rotaId)
     .on('postgres_changes',{event:'*',schema:'public',table:c.table,filter:'id=eq.'+c.rotaId},payload=>{
-      if(applyingRemote)return;
+      if(applyingRemote || userLoadedFile)return;
       const d=payload.new;
       if(d&&Array.isArray(d.dados)){
         rows=d.dados.map(r=>({sequence:text(r.sequence),address:text(r.address)}));
@@ -223,6 +223,7 @@ function load(file){
       }
 
       const start=hasHeader?1:0;
+      userLoadedFile=true;
       rows=raw.slice(start).map(r=>({
         sequence:text(r[seqCol]),
         address:text(r[addrCol])
@@ -235,6 +236,7 @@ function load(file){
       }
 
       done=rows.map(()=>false);
+      $('status').textContent=file.name+' • '+rows.length+' endereços carregados.';
       showLoaded(file.name+' • '+rows.length+' endereços carregados.');
       sync();
     }catch(err){
