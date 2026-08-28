@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Romaneio • Rota do dia</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 .trackingMap{height:460px;border-radius:16px;overflow:hidden;margin-top:12px}
 .trackingLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#66717d;margin:10px 0}
@@ -139,12 +138,11 @@
   <button type="button" id="navCadastro" class="navItem">⚙️<span>Cadastro</span></button>
 </nav>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
-<script src="viewer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script defer src="app.js"></script>
+<script defer src="viewer.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="supabase-config.js"></script>
 <script src="navigation-fix.js"></script>
 <script>
 (function(){
@@ -166,7 +164,7 @@
       Object.keys(navs).forEach(k=>{if(navs[k])navs[k].classList.toggle('active',k===name)});
       window.scrollTo(0,0);
       if(name==='view' && typeof window.render==='function')window.render();
-      if(name==='tracking')setTimeout(()=>{if(typeof window.loadTracking==='function')window.loadTracking();if(typeof window.loadDeliveryMap==='function')window.loadDeliveryMap()},150);
+      
     }
     Object.keys(navs).forEach(name=>{
       if(!navs[name])return;
@@ -187,14 +185,6 @@
       e.preventDefault();
       e.stopImmediatePropagation();
       show('route');
-      return false;
-    };
-
-    const tracking=document.getElementById('navTracking');
-    if(tracking)tracking.onclick=function(e){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      window.location.href='rastreamento.html';
       return false;
     };
 
