@@ -1,9 +1,8 @@
-/* CORREÇÃO DE NAVEGAÇÃO - ROMANEIO
-   Coloque este arquivo em:
-   Romaneio/Organizador/navigation-fix.js
-
-   Depois, no FINAL do index.html, depois dos scripts existentes, coloque:
-   <script src="navigation-fix.js"></script>
+/* CORREÇÃO DEFINITIVA DO RODAPÉ - ROMANEIO
+   Esta versão deve ser carregada POR ÚLTIMO no index.html.
+   Ela mantém:
+   Planilha | Visualizar | Rastreamento | Cadastro
+   e não interfere em Planilha Pronta ou Modo Entregador.
 */
 (function () {
   "use strict";
@@ -24,28 +23,34 @@
     };
 
     function mostrar(nome) {
-      Object.keys(telas).forEach((key) => {
+      Object.keys(telas).forEach(function (key) {
         if (telas[key]) {
           telas[key].classList.toggle("activeScreen", key === nome);
         }
       });
 
-      Object.keys(botoes).forEach((key) => {
+      Object.keys(botoes).forEach(function (key) {
         if (botoes[key]) {
           botoes[key].classList.toggle("active", key === nome);
+          botoes[key].type = "button";
         }
       });
 
       window.scrollTo(0, 0);
 
-      // O viewer original possui sua própria renderização.
-      // Não chama o render() global do app.js.
-      if (nome === "view" && typeof window.renderRouteView === "function") {
-        window.renderRouteView();
+      if (nome === "view" && typeof window.render === "function") {
+        window.render();
+      }
+
+      if (nome === "tracking") {
+        setTimeout(function () {
+          if (typeof window.loadTracking === "function") window.loadTracking();
+          if (typeof window.loadDeliveryMap === "function") window.loadDeliveryMap();
+        }, 150);
       }
     }
 
-    Object.keys(botoes).forEach((nome) => {
+    Object.keys(botoes).forEach(function (nome) {
       const botao = botoes[nome];
       if (!botao) return;
 
