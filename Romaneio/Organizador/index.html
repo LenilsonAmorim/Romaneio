@@ -37,6 +37,12 @@
     <div id="fileInfo" class="fileInfo">Nenhuma planilha carregada.</div>
     <button id="analyze" disabled class="primary full">🔄 Analisar novamente</button>
   </div>
+  <div class="card" id="geoRouteCard">
+    <div class="eyebrow">ROTEIRIZAÇÃO PELO MAPA</div>
+    <h2>🧭 Calcular minha rota</h2>
+    <p class="muted">Ignora a sequência de quadras. Usa o ponto de partida, localiza as entregas da planilha e calcula a rota com retorno ao ponto de partida.</p>
+    <button id="openGeoRouting" type="button" class="primary full">🗺️ Roteirizar pelo mapa</button>
+  </div>
   <div class="stats">
     <div><strong id="count">0</strong><span>entregas</span></div>
     <div><strong id="bairros">0</strong><span>bairros</span></div>
@@ -181,5 +187,40 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
-</body>
+<script>
+(function(){
+  function wireGeo(){
+    var b=document.getElementById('openGeoRouting');
+    if(!b || b.dataset.wired) return;
+    b.dataset.wired='1';
+    b.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href='roteirizacao.html';
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wireGeo,{once:true});
+  else wireGeo();
+})();
+</script>
+<script>
+(function(){
+  function wireGeo(){
+    var b=document.getElementById('openGeoRouting');
+    var s=document.getElementById('geoStart');
+    if(!b || b.dataset.wired) return;
+    b.dataset.wired='1';
+    try { s.value=localStorage.getItem('romaneio_route_start_v1')||''; } catch(e){}
+    b.addEventListener('click',function(e){
+      e.preventDefault(); e.stopPropagation();
+      var start=(s.value||'').trim();
+      if(!start){ document.getElementById('geoRouteStatus').textContent='Informe o ponto de partida.'; return; }
+      try{ localStorage.setItem('romaneio_route_start_v1',start); }catch(e){}
+      window.location.href='roteirizacao.html';
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wireGeo,{once:true});
+  else wireGeo();
+})();
+</script></body>
 </html>
