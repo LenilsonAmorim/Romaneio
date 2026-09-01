@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Romaneio • Roteirizar pelo mapa</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#17202a;font-family:Arial,sans-serif}
+header{background:#111827;color:#fff;padding:18px 16px}.brand{font-size:22px;font-weight:800}.sub{opacity:.75;font-size:13px;margin-top:4px}
+main{max-width:1000px;margin:auto;padding:14px 12px 90px}.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 5px #0002}
+label{display:block;margin:10px 0 5px;font-weight:700;font-size:13px}input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:9px;font-size:16px}
+button{border:0;border-radius:9px;padding:12px 14px;font-weight:800;margin-top:10px}.primary{background:#111827;color:#fff}.secondary{background:#e5e7eb;color:#111827}
+#map{height:500px;border-radius:12px;overflow:hidden}.muted{color:#6b7280;font-size:13px;line-height:1.45}
+.routeRow{display:flex;gap:10px;align-items:center;border-bottom:1px solid #e5e7eb;padding:10px 0}.n{width:32px;height:32px;border-radius:9px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:900;flex:none}.grow{flex:1}.addr{font-weight:800}.meta{font-size:12px;color:#6b7280;margin-top:2px}.warn{padding:10px;background:#fff7ed;color:#9a3412;border-radius:9px}
+</style>
+</head>
+<body>
+<header><div class="brand">ROMANEIO</div><div class="sub">Roteirização por mapa</div></header>
+<main>
+<div class="card">
+<h2 style="margin:0">🧭 Roteirizar entregas</h2>
+<p class="muted">A sequência de quadras não participa deste cálculo. O sistema usa a partida, todas as entregas e o retorno à partida.</p>
+<label>Ponto de partida</label>
+<input id="start" placeholder="Ex.: Miguel Lanches, Maceió - AL">
+<button id="calc" class="primary" type="button">🗺️ Calcular rota</button>
+<div id="msg" class="muted"></div>
+</div>
+<div class="card"><div id="map"></div></div>
+<div class="card">
+<h3 style="margin-top:0">📍 Ordem calculada</h3>
+<div id="list" class="muted">Nenhuma rota calculada.</div>
+</div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+const KEY='romaneio_last_route_view_v1';
+const CACHE='romaneio_map_cache_v1';
+const startKey='romaneio_route_start_v1';
+const $=id=>document.getElementById(id);
+const map=L.map('map').setView([-9.65,-35.735],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let layer=L.layerGroup().addTo(map);
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')||{data:[]}}catch(e){return{data:[]}}}
+function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function hav(a,b){const R=6371,p=Math.PI/180,d1=(b.lat-a.lat)*p,d2=(b.lon-a.lon)*p;const x=Math.sin(d1/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(d2/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+async function geo(q){
+  const c=JSON.parse(localStorage.getItem(CACHE)||'{}'); const k=q.toLowerCase().trim();
+  if(c[k]) return c[k];
+  const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q='+encodeURIComponent(q+', Brasil'),{headers:{Accept:'application/json'}});
+  if(!r.ok) throw Error('Serviço de mapa indisponível');
+  const d=await r.json(); if(!d.length) return null;
+  const v={lat:+d[0].lat,lon:+d[0].lon,label:d[0].display_name}; c[k]=v; localStorage.setItem(CACHE,JSON.stringify(c)); return v;
+}
+function nearest(start,items){
+  const r=items.slice(),o=[];let cur=start;
+  while(r.length){let bi=0,bd=Infinity;for(let i=0;i<r.length;i++){const d=hav(cur,r[i].coords);if(d<bd){bd=d;bi=i}}const n=r.splice(bi,1)[0];o.push(n);cur=n.coords}return o;
+}
+async function calc(){
+ const stext=$('start').value.trim(), items=load().data||[];
+ if(!stext){$('msg').textContent='Informe o ponto de partida.';return}
+ if(!items.length){$('msg').textContent='Primeiro analise uma planilha na tela Planilha.';return}
+ $('calc').disabled=true;layer.clearLayers();$('msg').textContent='📍 Localizando partida e endereços...';
+ try{
+  const start=await geo(stext); if(!start) throw Error('Ponto de partida não encontrado.');
+  const located=[];
+  for(const item of items){
+    const q=[item.endereco,item.bairro].filter(Boolean).join(', ');
+    const coords=await geo(q);
+    if(coords) located.push({...item,coords});
+  }
+  if(!located.length) throw Error('Nenhuma entrega pôde ser localizada.');
+  const ordered=nearest(start,located);
+  const points=[start,...ordered.map(x=>x.coords),start];
+  const url='https://router.project-osrm.org/route/v1/driving/'+points.map(p=>p.lon+','+p.lat).join(';')+'?overview=full&geometries=geojson&steps=false';
+  const rr=await fetch(url); if(!rr.ok) throw Error('Não foi possível calcular o trajeto.');
+  const rd=await rr.json(); if(!rd.routes?.[0]) throw Error('Rota não encontrada.');
+  const rt=rd.routes[0];
+  L.geoJSON(rt.geometry,{style:{weight:6,opacity:.85}}).addTo(layer);
+  L.marker([start.lat,start.lon]).addTo(layer).bindPopup('<b>🏠 Partida / retorno</b>');
+  ordered.forEach((x,i)=>L.marker([x.coords.lat,x.coords.lon]).addTo(layer).bindPopup('<b>'+(i+1)+'. '+esc(x.endereco)+'</b>'));
+  const b=layer.getBounds(); if(b.isValid()) map.fitBounds(b,{padding:[20,20]});
+  $('list').innerHTML=ordered.map((x,i)=>'<div class="routeRow"><span class="n">'+(i+1)+'</span><div class="grow"><div class="addr">'+esc(x.endereco)+'</div><div class="meta">'+esc(x.bairro||'')+'</div></div></div>').join('');
+  $('msg').textContent='✅ '+ordered.length+' entregas • rota fechada com retorno à partida • '+(rt.distance/1000).toFixed(1)+' km';
+  localStorage.setItem(startKey,stext);
+  localStorage.setItem('romaneio_geo_route_v1',JSON.stringify({start,stops:ordered,returnedToStart:true,distance:rt.distance,duration:rt.duration,generatedAt:Date.now()}));
+ }catch(e){console.error(e);$('msg').innerHTML='<span class="warn">⚠️ '+esc(e.message)+'</span>'}
+ finally{$('calc').disabled=false}
+}
+$('start').value=localStorage.getItem(startKey)||'';
+$('calc').onclick=calc;
+})();
+</script>
+</body>
+</html>
