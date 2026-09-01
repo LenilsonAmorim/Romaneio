@@ -46,45 +46,41 @@ let layer=L.layerGroup().addTo(map);
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')||{data:[]}}catch(e){return{data:[]}}}
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function hav(a,b){const R=6371,p=Math.PI/180,d1=(b.lat-a.lat)*p,d2=(b.lon-a.lon)*p;const x=Math.sin(d1/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(d2/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
-function geo(q){
-  return new Promise((resolve,reject)=>{
-    const c=JSON.parse(localStorage.getItem(CACHE)||'{}');
-    const k=q.toLowerCase().trim();
-    if(c[k]) return resolve(c[k]);
+async function geo(q){
+  const c=JSON.parse(localStorage.getItem(CACHE)||'{}');
+  const k=q.toLowerCase().trim();
+  if(c[k]) return c[k];
 
-    // JSONP evita o bloqueio CORS que está acontecendo no navegador.
-    const cb='romGeo_'+Date.now()+'_'+Math.floor(Math.random()*100000);
-    const script=document.createElement('script');
-    let timer;
-    window[cb]=function(data){
-      clearTimeout(timer);
-      try{
-        if(!Array.isArray(data) || !data.length) return resolve(null);
-        const d=data[0];
-        const v={lat:+d.lat,lon:+d.lon,label:d.display_name||q};
-        c[k]=v;
-        localStorage.setItem(CACHE,JSON.stringify(c));
-        resolve(v);
-      }finally{
-        delete window[cb];
-        script.remove();
-      }
-    };
-    script.onerror=function(){
-      clearTimeout(timer);
-      delete window[cb];
-      script.remove();
-      reject(new Error('Falha ao consultar a localização do endereço.'));
-    };
-    const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&addressdetails=1&json_callback='+cb+'&q='+encodeURIComponent(q+', Brasil');
-    script.src=url;
-    document.head.appendChild(script);
-    timer=setTimeout(()=>{
-      delete window[cb];
-      script.remove();
-      reject(new Error('Tempo esgotado ao localizar o endereço.'));
-    },15000);
-  });
+  async function arcgis(){
+    const url='https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&outFields=*&countryCode=BRA&singleLine='+encodeURIComponent(q);
+    const r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'});
+    if(!r.ok) throw new Error('ArcGIS HTTP '+r.status);
+    const d=await r.json();
+    const a=d.candidates&&d.candidates[0];
+    if(!a || !a.location) return null;
+    return {lat:+a.location.y,lon:+a.location.x,label:a.address||q};
+  }
+
+  async function nominatim(){
+    const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&addressdetails=1&q='+encodeURIComponent(q+', Brasil');
+    const r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'});
+    if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
+    const d=await r.json();
+    if(!d.length) return null;
+    return {lat:+d[0].lat,lon:+d[0].lon,label:d[0].display_name||q};
+  }
+
+  let v=null, last=null;
+  try { v=await arcgis(); } catch(e) { last=e; }
+  if(!v) {
+    try { v=await nominatim(); } catch(e) { last=e; }
+  }
+  if(!v) {
+    throw new Error('Falha ao consultar a localização do endereço.');
+  }
+  c[k]=v;
+  localStorage.setItem(CACHE,JSON.stringify(c));
+  return v;
 }
 function nearest(start,items){
   const r=items.slice(),o=[];let cur=start;
@@ -106,7 +102,7 @@ async function calc(){
     if(coords) located.push({...item,coords});
     await new Promise(r=>setTimeout(r,1100));
   }
-  if(!located.length) throw Error('Nenhuma entrega pôde ser localizada.');
+  if(!located.length) throw Error('Nenhuma entrega pôde ser localizada. Confira se os endereços da planilha têm rua, número, bairro e cidade.');
   const ordered=nearest(start,located);
   const points=[start,...ordered.map(x=>x.coords),start];
   const url='https://router.project-osrm.org/route/v1/driving/'+points.map(p=>p.lon+','+p.lat).join(';')+'?overview=full&geometries=geojson&steps=false';
