@@ -47,40 +47,51 @@ function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')||{data:
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function hav(a,b){const R=6371,p=Math.PI/180,d1=(b.lat-a.lat)*p,d2=(b.lon-a.lon)*p;const x=Math.sin(d1/2)**2+Math.cos(a.lat*p)*Math.cos(b.lat*p)*Math.sin(d2/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 async function geo(q){
-  const c=JSON.parse(localStorage.getItem(CACHE)||'{}');
-  const k=q.toLowerCase().trim();
-  if(c[k]) return c[k];
+  return new Promise((resolve,reject)=>{
+    const c=JSON.parse(localStorage.getItem(CACHE)||'{}');
+    const k=q.toLowerCase().trim();
+    if(c[k]) return resolve(c[k]);
 
-  async function arcgis(){
-    const url='https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&maxLocations=1&outFields=*&countryCode=BRA&singleLine='+encodeURIComponent(q);
-    const r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'});
-    if(!r.ok) throw new Error('ArcGIS HTTP '+r.status);
-    const d=await r.json();
-    const a=d.candidates&&d.candidates[0];
-    if(!a || !a.location) return null;
-    return {lat:+a.location.y,lon:+a.location.x,label:a.address||q};
-  }
+    const cb='romGeo_'+Date.now()+'_'+Math.floor(Math.random()*1000000);
+    const script=document.createElement('script');
+    let finished=false;
+    let timer=setTimeout(()=>{
+      if(finished)return;
+      finished=true;
+      delete window[cb];
+      script.remove();
+      reject(new Error('Tempo esgotado ao localizar o endereço.'));
+    },15000);
 
-  async function nominatim(){
-    const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&addressdetails=1&q='+encodeURIComponent(q+', Brasil');
-    const r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'});
-    if(!r.ok) throw new Error('Nominatim HTTP '+r.status);
-    const d=await r.json();
-    if(!d.length) return null;
-    return {lat:+d[0].lat,lon:+d[0].lon,label:d[0].display_name||q};
-  }
+    window[cb]=function(data){
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      try{
+        if(!Array.isArray(data)||!data.length){resolve(null);return;}
+        const d=data[0];
+        const v={lat:+d.lat,lon:+d.lon,label:d.display_name||q};
+        c[k]=v;
+        localStorage.setItem(CACHE,JSON.stringify(c));
+        resolve(v);
+      }finally{
+        delete window[cb];
+        script.remove();
+      }
+    };
 
-  let v=null, last=null;
-  try { v=await arcgis(); } catch(e) { last=e; }
-  if(!v) {
-    try { v=await nominatim(); } catch(e) { last=e; }
-  }
-  if(!v) {
-    throw new Error('Falha ao consultar a localização do endereço.');
-  }
-  c[k]=v;
-  localStorage.setItem(CACHE,JSON.stringify(c));
-  return v;
+    script.onerror=function(){
+      if(finished)return;
+      finished=true;
+      clearTimeout(timer);
+      delete window[cb];
+      script.remove();
+      reject(new Error('Falha ao consultar a localização do endereço.'));
+    };
+
+    script.src='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&addressdetails=1&json_callback='+cb+'&q='+encodeURIComponent(q);
+    document.head.appendChild(script);
+  });
 }
 function nearest(start,items){
   const r=items.slice(),o=[];let cur=start;
@@ -88,16 +99,17 @@ function nearest(start,items){
 }
 async function calc(){
  const stext=$('start').value.trim(), items=load().data||[];
+ $('msg').textContent='';
  if(!stext){$('msg').textContent='Informe o ponto de partida.';return}
  if(!items.length){$('msg').textContent='Primeiro analise uma planilha na tela Planilha.';return}
  $('calc').disabled=true;layer.clearLayers();$('msg').textContent='📍 Localizando partida e endereços...';
  try{
-  const startQuery=/\b(AL|Maceió|Maceio|Brasil)\b/i.test(stext)?stext:(stext+', Maceió, AL');
+  const startQuery=/\b(AL|Maceió|Maceio|Brasil)\b/i.test(stext)?stext:(stext+', Maceió, AL, Brasil');
   const start=await geo(startQuery); if(!start) throw Error('Ponto de partida não encontrado. Tente informar rua, número, bairro e cidade.');
   const located=[];
   for(const item of items){
     const q0=[item.endereco,item.bairro].filter(Boolean).join(', ');
-    const q=/\b(AL|Maceió|Maceio|Brasil)\b/i.test(q0)?q0:(q0+', Maceió, AL');
+    const q=/\b(AL|Maceió|Maceio|Brasil)\b/i.test(q0)?q0:(q0+', Maceió, AL, Brasil');
     const coords=await geo(q);
     if(coords) located.push({...item,coords});
     await new Promise(r=>setTimeout(r,1100));
