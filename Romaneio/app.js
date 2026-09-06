@@ -96,7 +96,16 @@ async function geocode(d,index,total){
 async function buildRoute(){
   if(!deliveries.length)return toast("Adicione pelo menos uma entrega.");
   let area=JSON.parse(localStorage.getItem(AREA)||"{}");
+  // Usa diretamente o que estiver preenchido na tela, mesmo que
+  // o usuário ainda não tenha tocado em "Salvar área".
+  let screenCity=$("city").value.trim();
+  let screenState=$("state").value.trim().toUpperCase();
+  if(screenCity)area.city=screenCity;
+  if(screenState)area.state=screenState;
   if(!area.city||!area.state)return toast("Informe cidade e UF primeiro.");
+  localStorage.setItem(AREA,JSON.stringify(area));
+  $("city").value=area.city;
+  $("state").value=area.state;
   const btn=$("routeBtn");
   btn.disabled=true;btn.textContent="⏳ Localizando...";
   try{
