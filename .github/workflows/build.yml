@@ -1,140 +1,36 @@
-name: Gerar APK Romaneio
+name: Gerar APK
 
 on:
   workflow_dispatch:
-
   push:
-    paths:
-      - "romaneio-apk-filepicker-fixed.zip"
-      - ".github/workflows/build.yml"
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Baixar projeto
+      - name: Baixar código
         uses: actions/checkout@v4
 
-      - name: Configurar Java 17
+      - name: Configurar Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.13"
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Extrair projeto Android
-        shell: bash
-        run: |
-          set -e
-
-          echo "====================================="
-          echo "ARQUIVO DO APK"
-          echo "====================================="
-
-          ls -lh romaneio-apk-filepicker-fixed.zip
-
-          rm -rf android-project
-          mkdir -p android-project
-
-          unzip -q romaneio-apk-filepicker-fixed.zip -d android-project
-
-          echo ""
-          echo "====================================="
-          echo "ARQUIVOS EXTRAÍDOS"
-          echo "====================================="
-
-          find android-project -maxdepth 6 -type f | sort
-
-      - name: Localizar projeto Gradle
-        shell: bash
-        run: |
-          set -e
-
-          SETTINGS=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1 || true)
-
-          if [ -z "$SETTINGS" ]; then
-            echo "ERRO: nenhum settings.gradle encontrado."
-            exit 1
-          fi
-
-          ROOT=$(dirname "$SETTINGS")
-          echo "Projeto Gradle encontrado em:"
-          echo "$ROOT"
-
-      - name: Verificar projeto
-        shell: bash
-        run: |
-          set -e
-
-          test -f android-project/app/src/main/java/com/lenilson/romaneio/MainActivity.java
-          test -f android-project/settings.gradle
-          test -f android-project/build.gradle
-          test -f android-project/app/build.gradle
-          test -f android-project/app/src/main/AndroidManifest.xml
-
-          echo "====================================="
-          echo "PROJETO ANDROID OK"
-          echo "====================================="
+      - name: Dar permissão ao Gradle
+        run: chmod +x gradlew
 
       - name: Gerar APK
-        shell: bash
-        run: |
-          set -e
-
-          SETTINGS=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
-          ROOT=$(dirname "$SETTINGS")
-
-          echo "====================================="
-          echo "GERANDO APK"
-          echo "====================================="
-
-          cd "$ROOT"
-
-          gradle :app:assembleDebug \
-            --no-daemon \
-            --stacktrace
-
-      - name: Localizar APK
-        shell: bash
-        run: |
-          set -e
-
-          echo "====================================="
-          echo "PROCURANDO APK"
-          echo "====================================="
-
-          APK=$(find android-project \
-            -type f \
-            -path "*/build/outputs/apk/*.apk" \
-            | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERRO: nenhum APK foi gerado."
-            exit 1
-          fi
-
-          echo "APK encontrado:"
-          echo "$APK"
-
-          mkdir -p final
-          cp "$APK" final/Romaneio.apk
-
-          echo ""
-          echo "====================================="
-          echo "APK FINAL"
-          echo "====================================="
-
-          ls -lh final/Romaneio.apk
+        run: ./gradlew assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romaneio-APK
-          path: final/Romaneio.apk
-          if-no-files-found: error
+          name: Roteirizador-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
