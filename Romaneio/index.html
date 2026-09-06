@@ -1,63 +1,97 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Organizador de Endereços</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="description" content="Roteirizador de entregas">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <title>Roteirizador</title>
 </head>
 <body>
-<header>
-  <div>
-    <h1>Organizador de Endereços</h1>
-    <p>Importe sua planilha e gere uma versão limpa usando somente Número, Endereço e Bairro.</p>
+  <header class="topbar">
+    <div><strong>Roteirizador</strong><span>Entregas</span></div>
+    <button id="installBtn" class="small secondary hidden">Instalar</button>
+  </header>
+
+  <main class="container">
+    <section id="homeView" class="view">
+      <div class="hero">
+        <h1>Minhas entregas</h1>
+        <p>Adicione manualmente ou importe uma planilha.</p>
+      </div>
+
+      <div class="actions">
+        <button id="addBtn" class="primary">＋ Adicionar endereço</button>
+        <button id="importBtn" class="secondary">📂 Importar planilha</button>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+
+      <div class="area-card">
+        <label for="city">Cidade</label>
+        <input id="city" placeholder="Ex.: Maceió">
+        <label for="state">UF</label>
+        <input id="state" maxlength="2" placeholder="AL">
+        <button id="saveAreaBtn" class="secondary full">Salvar área</button>
+        <small>Use a cidade/UF onde estão as entregas para melhorar a localização dos endereços.</small>
+      </div>
+
+      <div class="summary">
+        <b id="count">0</b>
+        <span>entregas cadastradas</span>
+      </div>
+
+      <div id="deliveryList" class="list"></div>
+
+      <div id="empty" class="empty">
+        <div>📍</div>
+        <b>Nenhuma entrega ainda</b>
+        <span>Adicione um endereço ou importe uma planilha.</span>
+      </div>
+
+      <button id="routeBtn" class="primary full route-btn" disabled>🚀 Roteirizar entregas</button>
+    </section>
+
+    <section id="routeView" class="view hidden">
+      <div class="section-head">
+        <button id="backBtn" class="icon">←</button>
+        <div><h2>Rota</h2><span id="routeStatus">Preparando...</span></div>
+      </div>
+      <div id="map"></div>
+      <button id="startBtn" class="primary full">▶ Iniciar rota</button>
+      <div id="routeList" class="list route-list"></div>
+    </section>
+
+    <section id="runView" class="view hidden">
+      <div class="progress"><span id="progressText">Parada 1</span><span id="progressBar"></span></div>
+      <div class="stop-card">
+        <span class="eyebrow">PRÓXIMA ENTREGA</span>
+        <h1 id="stopAddress">—</h1>
+        <p id="stopDistrict">—</p>
+        <div class="stop-actions">
+          <button id="navBtn" class="secondary full">🧭 Navegar</button>
+          <button id="doneBtn" class="primary full">✓ Entrega concluída</button>
+        </div>
+      </div>
+      <button id="exitRunBtn" class="link-btn">Voltar para a rota</button>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="section-head"><h2>Adicionar entrega</h2><button id="closeModal" class="icon">×</button></div>
+      <label>Endereço</label><input id="mAddress" placeholder="Rua, avenida...">
+      <label>Número</label><input id="mNumber" placeholder="123">
+      <label>Bairro</label><input id="mDistrict" placeholder="Centro">
+      <button id="saveDelivery" class="primary full">Adicionar</button>
+    </div>
   </div>
-</header>
 
-<main>
-  <section class="card">
-    <h2>1. Importar planilha</h2>
-    <input id="file" type="file" accept=".xlsx,.xls,.csv">
-    <p id="fileInfo" class="muted">Nenhuma planilha carregada.</p>
-  </section>
-
-  <section class="card">
-    <h2>2. Regras de bairro</h2>
-    <p class="muted">Opcional. Uma regra por linha: nome que pode aparecer = nome final.</p>
-    <textarea id="bairroRules" placeholder="Mata Do Rolo = Mata do Rolo
-Mata do rolo = Mata do Rolo
-Antonio Lins = Antônio Lins"></textarea>
-    <button id="applyRules" class="secondary">Aplicar regras</button>
-  </section>
-
-  <section class="card">
-    <h2>3. Resultado</h2>
-    <div class="stats">
-      <div><strong id="count">0</strong><span>entregas</span></div>
-      <div><strong id="bairros">0</strong><span>bairros</span></div>
-      <div><strong id="quadras">0</strong><span>quadras reconhecidas</span></div>
-    </div>
-    <div class="actions">
-      <button id="process" disabled>Organizar</button>
-      <button id="download" disabled class="secondary">Baixar XLSX</button>
-      <button id="downloadCsv" disabled class="secondary">Baixar CSV</button>
-    </div>
-    <div class="tableWrap">
-      <table id="preview">
-        <thead><tr><th>Número</th><th>Endereço</th><th>Bairro</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card rules">
-    <h2>Regra de Quadra já incluída</h2>
-    <p>O sistema reconhece <b>QD01, QD 01, QD-01, QD1, Q 01, Q01, Quadra 01</b> e variações de maiúsculas/minúsculas/espaços.</p>
-    <p>Tudo vira o padrão <b>QD 1</b>, sem zero à esquerda.</p>
-  </section>
-</main>
-
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script>
+  <div id="toast"></div>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

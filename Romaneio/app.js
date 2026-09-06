@@ -1,193 +1,30 @@
-let rows = [];
-let processed = [];
-
-const $ = id => document.getElementById(id);
-
-function cleanText(v) {
-  return String(v ?? "").replace(/\s+/g, " ").trim();
-}
-
-function normKey(v) {
-  return cleanText(v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-}
-
-/*
-  Normaliza quadras sem confundir números comuns:
-  QD01, QD 01, QD-01, Q 01, Q01, Quadra 01 -> QD 1
-*/
-function normalizeQuadras(text) {
-  let s = cleanText(text);
-
-  // Quadra escrita por extenso.
-  s = s.replace(/\bquadra\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  // QD e Q isolados/colados, com espaços ou hífen.
-  s = s.replace(/\bq\s*d?\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  // Formas como "Q D 01" podem não casar dependendo da pontuação.
-  s = s.replace(/\bq\s+d\s*[-.:]?\s*0*(\d+)\b/gi, "QD $1");
-
-  return s;
-}
-
-function extractQuadra(text) {
-  const s = normalizeQuadras(text);
-  const m = s.match(/\bQD\s+(\d+)\b/i);
-  return m ? Number(m[1]) : 999999;
-}
-
-function extractHouseNumber(text) {
-  const s = cleanText(text);
-  // Primeiro número após vírgula costuma ser o número do imóvel nas planilhas recebidas.
-  let m = s.match(/,\s*0*(\d+)\b/);
-  if (m) return Number(m[1]);
-  // Fallback: último número antes de complemento.
-  m = s.match(/\b0*(\d+)\b/);
-  return m ? Number(m[1]) : 999999;
-}
-
-function normalizeBairro(text) {
-  let s = cleanText(text);
-  if (!s) return "";
-  const rules = $("bairroRules").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  const key = normKey(s);
-  for (const line of rules) {
-    const parts = line.split("=");
-    if (parts.length >= 2 && normKey(parts[0]) === key) return cleanText(parts.slice(1).join("="));
-  }
-  // Capitalização simples, preservando palavras curtas.
-  return s.toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());
-}
-
-function findColumn(headers, patterns) {
-  const normalized = headers.map(h => normKey(h));
-  for (const p of patterns) {
-    const i = normalized.findIndex(h => h === normKey(p));
-    if (i >= 0) return i;
-  }
-  for (const p of patterns) {
-    const i = normalized.findIndex(h => h.includes(normKey(p)));
-    if (i >= 0) return i;
-  }
-  return -1;
-}
-
-function convertSheet(data) {
-  if (!data.length) throw new Error("A planilha está vazia.");
-  const headers = data[0].map(cleanText);
-
-  const numIdx = findColumn(headers, ["Stop","Sequence","Número","Numero","AT ID"]);
-  const addrIdx = findColumn(headers, ["Destination Address","Endereço","Endereco","Address"]);
-  const bairroIdx = findColumn(headers, ["Bairro","Neighborhood"]);
-
-  if (addrIdx < 0 || bairroIdx < 0) {
-    throw new Error("Não encontrei as colunas de Endereço e Bairro.");
-  }
-
-  return data.slice(1).map((r, idx) => {
-    const numero = numIdx >= 0 && cleanText(r[numIdx]) && cleanText(r[numIdx]) !== "-"
-      ? cleanText(r[numIdx])
-      : String(idx + 1);
-
-    const endereco = normalizeQuadras(r[addrIdx]);
-    const bairro = normalizeBairro(r[bairroIdx]);
-
-    return {
-      "Número": numero,
-      "Endereço": endereco,
-      "Bairro": bairro,
-      _quadra: extractQuadra(endereco),
-      _numeroCasa: extractHouseNumber(endereco),
-      _originalIndex: idx
-    };
-  }).filter(r => r["Endereço"] || r["Bairro"]);
-}
-
-function organize() {
-  processed = rows.map(r => ({...r}));
-
-  // Primeiro bairro, depois quadra reconhecida, depois número do imóvel.
-  processed.sort((a,b) => {
-    const bairro = a["Bairro"].localeCompare(b["Bairro"], "pt-BR", {sensitivity:"base"});
-    if (bairro) return bairro;
-    if (a._quadra !== b._quadra) return a._quadra - b._quadra;
-    if (a._numeroCasa !== b._numeroCasa) return a._numeroCasa - b._numeroCasa;
-    return a._originalIndex - b._originalIndex;
-  });
-
-  // Renumera a sequência final.
-  processed.forEach((r,i)=>r["Número"] = String(i+1));
-
-  render();
-}
-
-function render() {
-  const tbody = $("preview").querySelector("tbody");
-  tbody.innerHTML = "";
-  processed.slice(0,150).forEach(r=>{
-    const tr = document.createElement("tr");
-    for (const k of ["Número","Endereço","Bairro"]) {
-      const td=document.createElement("td");
-      td.textContent=r[k];
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  });
-
-  $("count").textContent = processed.length;
-  $("bairros").textContent = new Set(processed.map(r=>normKey(r["Bairro"])).filter(Boolean)).size;
-  $("quadras").textContent = processed.filter(r=>r._quadra !== 999999).length;
-  $("download").disabled = !processed.length;
-  $("downloadCsv").disabled = !processed.length;
-}
-
-$("file").addEventListener("change", async e=>{
-  const file=e.target.files[0];
-  if(!file)return;
-  try {
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-    rows=convertSheet(data);
-    $("fileInfo").textContent=`${file.name} — ${rows.length} entregas carregadas.`;
-    $("process").disabled=false;
-    processed=[];
-    render();
-  } catch(err) {
-    alert(err.message || "Não foi possível ler a planilha.");
-  }
-});
-
-$("process").addEventListener("click", organize);
-$("applyRules").addEventListener("click", ()=>{
-  if (!rows.length) return;
-  rows = rows.map(r=>({...r,"Bairro":normalizeBairro(r["Bairro"])}));
-  organize();
-});
-
-function outputRows() {
-  return processed.map(r=>({
-    "Número":r["Número"],
-    "Endereço":r["Endereço"],
-    "Bairro":r["Bairro"]
-  }));
-}
-
-$("download").addEventListener("click", ()=>{
-  const ws=XLSX.utils.json_to_sheet(outputRows());
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Entregas");
-  XLSX.writeFile(wb,"entregas_organizadas.xlsx");
-});
-
-$("downloadCsv").addEventListener("click", ()=>{
-  const ws=XLSX.utils.json_to_sheet(outputRows());
-  const csv=XLSX.utils.sheet_to_csv(ws);
-  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="entregas_organizadas.csv";
-  a.click();
-  URL.revokeObjectURL(a.href);
-});
+const KEY="roteirizador_v1";const AREA="roteirizador_area_v1";
+let deliveries=JSON.parse(localStorage.getItem(KEY)||"[]"), route=[], current=0, map=null, markers=[];
+const $=id=>document.getElementById(id), save=()=>localStorage.setItem(KEY,JSON.stringify(deliveries));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function toast(t){$("toast").textContent=t;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2200)}
+function render(){ $("count").textContent=deliveries.length;$("empty").style.display=deliveries.length?"none":"flex";$("routeBtn").disabled=!deliveries.length;$("deliveryList").innerHTML=deliveries.map((d,i)=>`<div class="delivery"><div class="number">${i+1}</div><div><strong>${esc(d.address)}, ${esc(d.number)}</strong><small>${esc(d.district)}</small></div><button class="delete" data-i="${i}">×</button></div>`).join("");document.querySelectorAll(".delete").forEach(b=>b.onclick=()=>{deliveries.splice(+b.dataset.i,1);save();render()})}
+function loadArea(){let a=JSON.parse(localStorage.getItem(AREA)||"{}");$("city").value=a.city||"";$("state").value=a.state||""}
+$("addBtn").onclick=()=>{$("modal").classList.remove("hidden");$("mAddress").focus()};
+$("closeModal").onclick=()=>$("modal").classList.add("hidden");
+$("saveDelivery").onclick=()=>{let address=$("mAddress").value.trim(),number=$("mNumber").value.trim(),district=$("mDistrict").value.trim();if(!address||!number||!district)return toast("Preencha os três campos.");deliveries.push({address,number,district});save();render();["mAddress","mNumber","mDistrict"].forEach(x=>$(x).value="");$("modal").classList.add("hidden")};
+$("saveAreaBtn").onclick=()=>{let city=$("city").value.trim(),state=$("state").value.trim().toUpperCase();localStorage.setItem(AREA,JSON.stringify({city,state}));toast("Área salva.")};
+$("importBtn").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=e=>importFile(e.target.files[0]);
+function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"")}
+function pick(row,names){let keys=Object.keys(row),nk=keys.map(norm);for(let n of names){let i=nk.indexOf(norm(n));if(i>=0)return row[keys[i]]}for(let i=0;i<nk.length;i++)for(let n of names)if(nk[i].includes(norm(n)))return row[keys[i]];return ""}
+function importFile(file){if(!file)return;let r=new FileReader();r.onload=ev=>{try{let wb=XLSX.read(ev.target.result,{type:"array"}),rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});let added=0;rows.forEach(row=>{let address=pick(row,["endereco","endereço","rua","logradouro"]),number=pick(row,["numero","nº","n","num"]),district=pick(row,["bairro","district"]);if(address&&number&&district){deliveries.push({address:String(address).trim(),number:String(number).trim(),district:String(district).trim()});added++}});save();render();toast(`${added} endereços importados.`)}catch(e){toast("Não consegui ler a planilha.")}};r.readAsArrayBuffer(file)}
+$("routeBtn").onclick=buildRoute;$("backBtn").onclick=()=>show("homeView");
+$("startBtn").onclick=()=>{current=0;show("runView");showStop()};
+$("exitRunBtn").onclick=()=>show("routeView");
+$("doneBtn").onclick=()=>{if(current<route.length-1){current++;showStop()}else{toast("Rota concluída!");show("routeView")}};
+$("navBtn").onclick=()=>{let d=route[current];let q=encodeURIComponent(`${d.address}, ${d.number}, ${d.district}, ${$("city").value}, ${$("state").value}`);location.href=`https://www.google.com/maps/search/?api=1&query=${q}`};
+function show(id){["homeView","routeView","runView"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function showStop(){let d=route[current];$("progressText").textContent=`Parada ${current+1} de ${route.length}`;$("stopAddress").textContent=`${d.address}, ${d.number}`;$("stopDistrict").textContent=`${d.district} • ${$("city").value||""} ${$("state").value||""}`;$("progressBar").style.width=`${((current+1)/route.length)*100}%`}
+async function geocode(d){let area=JSON.parse(localStorage.getItem(AREA)||"{}");let q=encodeURIComponent(`${d.address}, ${d.number}, ${d.district}, ${area.city||""}, ${area.state||""}, Brasil`);let u=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${q}`;let res=await fetch(u,{headers:{"Accept-Language":"pt-BR"}});let data=await res.json();return data[0]?{...d,lat:+data[0].lat,lon:+data[0].lon}:null}
+async function buildRoute(){if(!deliveries.length)return;let area=JSON.parse(localStorage.getItem(AREA)||"{}");if(!area.city||!area.state)return toast("Informe cidade e UF primeiro.");$("routeBtn").disabled=true;$("routeBtn").textContent="⏳ Localizando...";let points=[];for(let d of deliveries){let p=await geocode(d);if(p)points.push(p);await new Promise(r=>setTimeout(r,1100))}if(!points.length){$("routeBtn").disabled=false;return toast("Nenhum endereço foi localizado.")}if(points.length<deliveries.length)toast(`${deliveries.length-points.length} endereço(s) não localizado(s).`);route=await optimize(points);route=route.length?route:points;renderRoute();$("routeBtn").disabled=false;$("routeBtn").textContent="🚀 Roteirizar entregas";show("routeView")}
+async function optimize(points){if(points.length<2)return points;try{let coords=points.map(p=>`${p.lon},${p.lat}`).join(";"),u=`https://router.project-osrm.org/trip/v1/driving/${coords}?source=first&roundtrip=false&overview=full&geometries=geojson`;let r=await fetch(u),j=await r.json();if(j.code!=="Ok")return points;return j.waypoints.map((w,i)=>({p:w.location,index:w.waypoint_index})).sort((a,b)=>a.index-b.index).map(x=>points[x.index])}catch(e){return points}}
+function renderRoute(){show("routeView");$("routeStatus").textContent=`${route.length} paradas`;$("routeList").innerHTML=route.map((d,i)=>`<div class="route-item"><div class="number">${i+1}</div><div><strong>${esc(d.address)}, ${esc(d.number)}</strong><small>${esc(d.district)}</small></div></div>`).join("");setTimeout(()=>drawMap(),50)}
+function drawMap(){if(map)map.remove();map=L.map("map").setView([route[0].lat,route[0].lon],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors"}).addTo(map);let latlngs=[];route.forEach((d,i)=>{let ll=[d.lat,d.lon];latlngs.push(ll);let m=L.marker(ll).addTo(map).bindPopup(`<b>Parada ${i+1}</b><br>${esc(d.address)}, ${esc(d.number)}<br>${esc(d.district)}`);markers.push(m)});if(latlngs.length>1)L.polyline(latlngs).addTo(map);map.fitBounds(L.latLngBounds(latlngs),{padding:[20,20]})}
+let deferredPrompt;$("installBtn").onclick=()=>deferredPrompt&&deferredPrompt.prompt();window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+loadArea();render();
