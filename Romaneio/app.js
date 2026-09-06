@@ -27,4 +27,17 @@ async function optimize(points){if(points.length<2)return points;try{let coords=
 function renderRoute(){show("routeView");$("routeStatus").textContent=`${route.length} paradas`;$("routeList").innerHTML=route.map((d,i)=>`<div class="route-item"><div class="number">${i+1}</div><div><strong>${esc(d.address)}, ${esc(d.number)}</strong><small>${esc(d.district)}</small></div></div>`).join("");setTimeout(()=>drawMap(),50)}
 function drawMap(){if(map)map.remove();map=L.map("map").setView([route[0].lat,route[0].lon],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors"}).addTo(map);let latlngs=[];route.forEach((d,i)=>{let ll=[d.lat,d.lon];latlngs.push(ll);let m=L.marker(ll).addTo(map).bindPopup(`<b>Parada ${i+1}</b><br>${esc(d.address)}, ${esc(d.number)}<br>${esc(d.district)}`);markers.push(m)});if(latlngs.length>1)L.polyline(latlngs).addTo(map);map.fitBounds(L.latLngBounds(latlngs),{padding:[20,20]})}
 let deferredPrompt;$("installBtn").onclick=()=>deferredPrompt&&deferredPrompt.prompt();window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("installBtn").classList.remove("hidden")});if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
-loadArea();render();
+async function cloudLoad(){
+  if(!window.supabaseReady) return;
+  try{
+    const cloud=await pullDeliveries();
+    if(cloud.length){deliveries=cloud;save();render()}
+  }catch(e){console.warn("Supabase:",e)}
+}
+async function cloudSave(){
+  if(!window.supabaseReady) return;
+  try{await pushDeliveries(deliveries)}catch(e){console.warn("Supabase:",e);toast("Salvo no aparelho; nuvem indisponível.")}
+}
+const oldSave=save;
+save=()=>{oldSave();cloudSave()};
+loadArea();render();cloudLoad();
