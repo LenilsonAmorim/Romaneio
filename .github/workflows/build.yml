@@ -28,11 +28,18 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Extrair projeto Android do ZIP
+        run: |
+          rm -rf android-build
+          mkdir android-build
+          unzip -q Roteirizador_Android_Completo_para_GitHub.zip -d android-build
+
       - name: Gerar APK
+        working-directory: android-build
         run: gradle assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: Roteirizador-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: android-build/app/build/outputs/apk/debug/app-debug.apk
